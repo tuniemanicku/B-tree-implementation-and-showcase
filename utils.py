@@ -3,8 +3,16 @@ INSTRUCTION_TYPE_LENGTH = 1
 
 # B-tree config
 DEFAULT_BTREE_FILENAME = "btree.bin"
-RECORD_SIZE = 16 # two double precision floating point numbers (8*2)
-KEY_SIZE = 4 # one 32-bit integer
+DEFAULT_DATA_FILENAME = "data.bin"
+
 POINTER_SIZE = 4
 RECORD_COUNT_SIZE = 4
 BTREE_ORDER = 2
+
+# record config
+VOLTAGE_ID = 0
+CURRENT_ID = 1
+RECORD_SIZE = 16 # two double precision floating point numbers (8*2)
+KEY_SIZE = 4 # one 32-bit integer
+PAIR_SIZE = 20 # pair of two above
+DATA_PAGE_SIZE = 10
