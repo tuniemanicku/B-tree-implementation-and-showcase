@@ -1,7 +1,10 @@
 import os.path
+
+from BTree import BTree
 from utils import *
 
 def test_mode_loop():
+    btree = BTree()
     print("----------------------------")
     print("Test data mode")
     file_exists = False
@@ -27,6 +30,7 @@ def test_mode_loop():
             break
 
 def interactive_mode_loop():
+    btree = BTree()
     print("----------------------------")
     print("Interactive mode")
     interactive_mode_running = True
