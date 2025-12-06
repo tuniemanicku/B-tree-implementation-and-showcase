@@ -46,6 +46,7 @@ def interactive_mode_loop():
         print("[6] Exit")
         print("============================")
         choice = input("Choice: ")
+        number = None
         try:
             number = int(choice)
             if not number in options:
@@ -75,6 +76,7 @@ def main_loop():
         print("SBD - Task 2 - B-tree")
         choice = None
         options = [1,2,3]
+        number = None
         while not choice:
             print("============================")
             print("Choose program mode or exit:")
