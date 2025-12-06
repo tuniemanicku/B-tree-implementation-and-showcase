@@ -1,7 +1,10 @@
 import os.path
+
+from BTree import BTree
 from utils import *
 
 def test_mode_loop():
+    btree = BTree()
     print("----------------------------")
     print("Test data mode")
     file_exists = False
@@ -27,6 +30,7 @@ def test_mode_loop():
             break
 
 def interactive_mode_loop():
+    btree = BTree()
     print("----------------------------")
     print("Interactive mode")
     interactive_mode_running = True
@@ -42,6 +46,7 @@ def interactive_mode_loop():
         print("[6] Exit")
         print("============================")
         choice = input("Choice: ")
+        number = None
         try:
             number = int(choice)
             if not number in options:
@@ -71,6 +76,7 @@ def main_loop():
         print("SBD - Task 2 - B-tree")
         choice = None
         options = [1,2,3]
+        number = None
         while not choice:
             print("============================")
             print("Choose program mode or exit:")
