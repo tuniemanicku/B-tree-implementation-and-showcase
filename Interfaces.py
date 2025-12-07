@@ -4,19 +4,35 @@ import struct
 class BTreeInterface:
     def __init__(self, filename, order):
         self.file = filename
+        with open(filename, 'wb') as f:
+            pass
         self.base_address = 0
         self.read_buffer = None
         self.write_address = 0
         self.write_buffer = None
         self.order = order
-        self.page_size = (2*order+1)*POINTER_SIZE + (2*order)*KEY_SIZE + RECORD_COUNT_SIZE + POINTER_SIZE
-        print("Page size:",self.page_size)
+        self.node_count = 0
+        self.modified = False
+        # maximum page_size is determined for:
+        # maximum 2d+1 pointers
+        # maximum 2d key and data pointer pairs
+        # integer containing current number of records in a node
+        # parent pointer
+        self.page_size = (2*order+1)*POINTER_SIZE + (2*order)*(KEY_SIZE + POINTER_SIZE) + RECORD_COUNT_SIZE + POINTER_SIZE
+        self.keys_offset = (2*order+1)*POINTER_SIZE
+        self.record_count_offset = (2*order+1)*POINTER_SIZE + (2*order)*(KEY_SIZE + POINTER_SIZE)
+        print("Node size:",self.page_size)
+
+    def get_new_node_address(self):
+        self.node_count += 1
+        return (self.node_count-1)*self.page_size
 
     def get_new_read_buffer(self, index):
         with open(self.file, 'rb') as f:
             self.base_address = index - (index % self.page_size)
             f.seek(self.base_address)
             self.read_buffer = f.read(self.page_size).ljust(self.page_size, b'\x00')
+            self.modified = False
 
     def read(self, index):
         if self.write_address <= index < self.write_address + self.page_size:
@@ -27,6 +43,15 @@ class BTreeInterface:
             self.get_new_read_buffer(index)
         return_value = self.read_buffer[index - self.base_address:index - self.base_address + POINTER_SIZE]
         return return_value if return_value else None
+
+    def read_page(self, index):
+        self.write_cached_records()
+        if not self.read_buffer or (self.write_address == self.base_address and self.modified):
+            self.get_new_read_buffer(index)
+        if not (self.base_address <= index < self.base_address + self.page_size):
+            self.get_new_read_buffer(index)
+        return_value = self.read_buffer
+        return bytearray(return_value) if return_value else None
 
     def get_new_write_buffer(self, index):
         with open(self.file, 'rb') as f:
@@ -39,6 +64,7 @@ class BTreeInterface:
         with open(self.file, 'r+b') as f:
             f.seek(self.write_address)
             f.write(self.write_buffer)
+            self.modified = True
 
     def write(self, index, value):
         if not self.write_buffer:
@@ -46,7 +72,17 @@ class BTreeInterface:
         if not (self.write_address <= index < self.write_address + self.page_size):
             self.write_cached_records()
             self.get_new_write_buffer(index)
-        self.write_buffer[index - self.write_address:index - self.write_address + POINTER_SIZE] = value
+        print(type(value))
+        to_write = bytearray(value.to_bytes(4, byteorder='little'))
+        self.write_buffer[index - self.write_address:index - self.write_address + POINTER_SIZE] = to_write
+        self.modified = True
+
+    def write_page(self, index, node):
+        if not (self.write_address <= index < self.write_address + self.page_size):
+            self.write_cached_records()
+            self.get_new_write_buffer(index)
+        self.write_buffer = node
+        self.write_cached_records()
 
 # class DataInterface:
 #     def __init__(self, filename):
@@ -86,6 +122,7 @@ class DataInterface:
         self.write_buffer_base_index = None
         self.read_buffer_base_index = None
         self.total_records = 0
+        self.autoindexing = 0
 
         self.read_count = 0
         self.write_count = 0
@@ -102,6 +139,9 @@ class DataInterface:
 
     # record: (key, voltage, current)
     def write_entry(self, index, record):
+        if not index:
+            index = self.autoindexing
+            self.autoindexing += 1
         page_start = (index // DATA_PAGE_SIZE) * DATA_PAGE_SIZE
 
         if self.write_buffer_base_index != page_start:
@@ -114,6 +154,7 @@ class DataInterface:
 
         if page_start + DATA_PAGE_SIZE > self.total_records:
             self.flush_write_buffer()
+        return index
 
     def flush_write_buffer(self):
         if not self.write_buffer or self.write_buffer_base_index is None:
