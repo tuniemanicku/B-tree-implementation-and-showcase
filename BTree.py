@@ -1,3 +1,5 @@
+from urllib.parse import to_bytes
+
 from Interfaces import *
 from utils import *
 from test import *
@@ -19,29 +21,17 @@ class BTree:
 
     def display(self):
         print("/////////////B-TREE DISPLAY////////////////")
-        self.tree_interface.display_tree(self.root, 0)
+        if self.root:
+            self.tree_interface.display_tree(self.root, 0)
+        else:
+            print("NULL")
         print("///////////////////////////////////////////")
 
     def write_node(self, node_address, child_ptrs, keys, values, parent_pointer):
-        """
-        Writes a B-tree node into its page buffer.
-        Node layout (all 4-byte ints):
-            [child_ptr0 ... child_ptr2d]      -> (2d+1) entries
-            [key0 value0 key1 value1 ... key(2d-1) value(2d-1)]
-            [number_of_pairs]
-            [parent_pointer]
-        """
-
         page_size = self.tree_interface.page_size
         d = self.order
         max_keys = 2 * d
         max_child_ptrs = 2 * d + 1
-
-        # # --- Sanity checks ---
-        # assert len(child_ptrs) == max_child_ptrs, \
-        #     f"child_ptrs must have length {max_child_ptrs}"
-        # assert len(keys) == len(values), "keys and values must have equal length"
-        # assert len(keys) <= max_keys, f"Too many keys ({len(keys)} > {max_keys})"
 
         # --- Create page buffer ---
         page = bytearray(page_size)
@@ -132,255 +122,42 @@ class BTree:
     def compensate(self):
         pass
 
-    def add_record(self, key, record, data_address=None):
+    def add_record(self, key: int, record: tuple):
         if not self.root:
-            self.root = self.tree_interface.get_new_node_address() # address in the interface
-            # first 2 pointers are NONE
-            # self.tree_interface.write(index=self.root, value=self.tree_interface.get_new_node_address())
-            # self.tree_interface.write(index=self.root+POINTER_SIZE, value=self.tree_interface.get_new_node_address())
-            # key value in the node
-            self.tree_interface.write(index=self.root+self.tree_interface.keys_offset, value=key)
-            # data file which returns address written in it
             data_address = self.data_interface.write_entry(index=None, record=(key, record[0], record[1]))
-            # writing pointer to data file next to the key in the node
-            self.tree_interface.write(index=self.root+self.tree_interface.keys_offset+KEY_SIZE, value=data_address)
-            self.tree_interface.write(index=self.root+self.tree_interface.record_count_offset, value=1)
-            # debug
-            self.tree_interface.read_page(index=self.root)
+            self.root = self.tree_interface.get_new_node_address()
+            node = bytearray(self.tree_interface.page_size)
+            offset = self.tree_interface.keys_offset
+            node[offset:offset + KEY_SIZE] = key.to_bytes(KEY_SIZE, "little")
+            node[offset+KEY_SIZE:offset + KEY_SIZE + POINTER_SIZE] = data_address.to_bytes(POINTER_SIZE, "little")
+            rcoffset = self.tree_interface.record_count_offset
+            m = 1
+            node[rcoffset:rcoffset + RECORD_COUNT_SIZE] = m.to_bytes(RECORD_COUNT_SIZE, "little")
+            self.tree_interface.write(index=self.root+self.tree_interface.page_size-POINTER_SIZE, value=0)
+            self.tree_interface.write_page(index=self.root, node=node)
             hexdump_4byte(DEFAULT_BTREE_FILENAME)
             return OK
-        if self.search(search_key=key) == ALREADY_EXISTS:
+        if self.search(search_key=key):
             return ALREADY_EXISTS
-        if not data_address and data_address != 0:
-            data_address = self.data_interface.write_entry(index=None, record=(key, record[0], record[1]))
-        # adding logic
-        # search gives last node self.path_buffer[-1]
-        # add the record here
-        current = self.path_buffer[-1]
-        node = self.tree_interface.read_page(index=current)
-        # check if record count is appropriate
-        m_offset = self.tree_interface.record_count_offset
-        m = int.from_bytes(node[m_offset:m_offset+RECORD_COUNT_SIZE], byteorder='little')
-        offset = self.tree_interface.keys_offset
-        if m < 2*self.order:
-            end = 0
-            for i in range(0, m * (KEY_SIZE + POINTER_SIZE), (KEY_SIZE + POINTER_SIZE)):
-                read_key = int.from_bytes(node[offset + i:offset + i + KEY_SIZE], byteorder='little')
-                read_address = int.from_bytes(node[offset+i+KEY_SIZE:offset+i+KEY_SIZE+POINTER_SIZE], byteorder='little')
-                if read_key > key:
-                    # write key to where read_key is while storing read_key in key
-                    node[offset + i:offset + i + KEY_SIZE] = bytearray(key.to_bytes(KEY_SIZE, byteorder='little'))
-                    key = read_key
-                    # do the same with pointers to data
-                    node[offset+i+KEY_SIZE:offset+i+KEY_SIZE+POINTER_SIZE] = bytearray(data_address.to_bytes(POINTER_SIZE, byteorder='little'))
-                    data_address = read_address
-                end = i + KEY_SIZE + POINTER_SIZE # save last i value
-            node[offset + end:offset + end + KEY_SIZE] = bytearray(key.to_bytes(KEY_SIZE, byteorder='little'))
-            node[offset+end+KEY_SIZE:offset+end+KEY_SIZE+POINTER_SIZE] = bytearray(data_address.to_bytes(POINTER_SIZE, byteorder='little'))
-            # new m value
-            m += 1
-            node[m_offset:m_offset + RECORD_COUNT_SIZE] = m.to_bytes(RECORD_COUNT_SIZE, byteorder='little')
-            # add the whole node here
-            print(node)
-            self.tree_interface.write_page(index=current, node=node)
         else:
-            # try compensation (check for number of keys in neighbours m_neighbour < 2d)
-            parent_offset = self.tree_interface.parent_pointer_offset
-            parent_address = int.from_bytes(node[parent_offset:parent_offset+POINTER_SIZE], byteorder='little')
-            if not parent_address == NULL_ADDRESS:
-                # parent_node = self.node_buffer[parent_address]
-                # parent_m = int.from_bytes(parent_node[m_offset:m_offset + RECORD_COUNT_SIZE], byteorder="little")
-                keys, data_p = self.get_all_keys_and_pointers_from_node(node, m)
-                # for i in range(0, parent_m * (KEY_SIZE + POINTER_SIZE), (KEY_SIZE + POINTER_SIZE)):
-                #     read_parent_key = int.from_bytes(parent_node[offset + i:offset + i + KEY_SIZE], byteorder='little')
-                #     l_child = int.from_bytes(parent_node[(i // 2) - POINTER_SIZE:(i // 2)], byteorder="little")
-                #     r_child = int.from_bytes(parent_node[(i // 2) + POINTER_SIZE:(i // 2) + POINTER_SIZE * 2], byteorder="little")  # right child address
-                # print("No compensation yet!")
-                parent_node = self.node_buffer[parent_address]
-                parent_m = int.from_bytes(parent_node[m_offset:m_offset + RECORD_COUNT_SIZE], byteorder="little")
-                read_parent_key = None
-                end = 0
-                for i in range(0, parent_m * (KEY_SIZE + POINTER_SIZE), (KEY_SIZE + POINTER_SIZE)):
-                    read_parent_key = int.from_bytes(parent_node[offset + i:offset + i + KEY_SIZE], byteorder='little')
-                    read_parent_data = int.from_bytes(parent_node[offset + i + KEY_SIZE:offset + i + KEY_SIZE+POINTER_SIZE], byteorder='little')
-                    if key < read_parent_key:
-                        # take pointer and read amount of children
-                        # try left neighbour
-                        l_child = int.from_bytes(parent_node[(i//2)-POINTER_SIZE:(i//2)], byteorder="little") # left child address
-                        if l_child >= parent_address:
-                            l_node = self.tree_interface.read_page(index=l_child)
-                            if self.get_node_m(l_node) < 2*self.order:
-                                #switch keys with left child and parent
-                                #keys[0] -> read_parent_key
-                                parent_node[offset + i:offset + i + KEY_SIZE] = keys[0].to_bytes(KEY_SIZE, byteorder='little')
-                                parent_node[offset + i + KEY_SIZE:offset + i + KEY_SIZE + POINTER_SIZE] = data_address.to_bytes(POINTER_SIZE, byteorder='little')
-                                self.tree_interface.write_page(index=parent_address, node=parent_node)
-                                #read_parent_key -> l_child[-1]
-                                l_keys, l_data = self.get_all_keys_and_pointers_from_node(l_node, self.get_node_m(l_node))
-                                l_children = self.get_all_child_pointers_from_node(l_node, self.get_node_m(l_node))
-                                l_keys.append(read_parent_key)
-                                l_data.append(read_parent_data)
-                                l_children.append(NULL_ADDRESS)
-                                self.write_node(
-                                    node_address=l_child,
-                                    child_ptrs=l_children,
-                                    keys=l_keys,
-                                    values=l_data,
-                                    parent_pointer=parent_address
-                                )
-                                #key -> keys
-                                child_pointers = self.get_all_child_pointers_from_node(node=node, m=m)
-                                i = bisect.bisect_left(keys, key)
-                                keys.insert(i, key)
-                                data_p.insert(i, data_address)
-                                child_pointers.insert(i + 1, NULL_ADDRESS)  # new null child
-                                self.write_node(
-                                    node_address=current,
-                                    child_ptrs=child_pointers,
-                                    keys=keys,
-                                    values=data_p,
-                                    parent_pointer=parent_address
-                                )
-                                return OK
-                        # try right neighbour
-                        r_child = int.from_bytes(parent_node[(i // 2) + POINTER_SIZE:(i // 2)+ POINTER_SIZE*2], byteorder="little") # right child address
-                        if r_child <= parent_address + offset - POINTER_SIZE:
-                            r_node = self.tree_interface.read_page(index=r_child)
-                            if self.get_node_m(r_node) < 2*self.order:
-                                pass
-                                return OK
-                    end = i
-                end += POINTER_SIZE+KEY_SIZE
-                if key > read_parent_key:
-                    l_child = int.from_bytes(parent_node[(end // 2) - POINTER_SIZE:(end // 2)],
-                                             byteorder="little")  # left child address
-                    if True:
-                        l_node = self.tree_interface.read_page(index=l_child)
-                        if self.get_node_m(l_node) < 2 * self.order:
-                            # switch keys with left child and parent
-                            # keys[0] -> read_parent_key
-                            parent_node[offset + i:offset + i + KEY_SIZE] = keys[0].to_bytes(KEY_SIZE,
-                                                                                             byteorder='little')
-                            parent_node[
-                                offset + i + KEY_SIZE:offset + i + KEY_SIZE + POINTER_SIZE] = data_address.to_bytes(
-                                POINTER_SIZE, byteorder='little')
-                            self.tree_interface.write_page(index=parent_address, node=parent_node)
-                            # read_parent_key -> l_child[-1]
-                            l_keys, l_data = self.get_all_keys_and_pointers_from_node(l_node, self.get_node_m(l_node))
-                            l_children = self.get_all_child_pointers_from_node(l_node, self.get_node_m(l_node))
-                            l_keys.append(read_parent_key)
-                            l_data.append(read_parent_data)
-                            l_children.append(NULL_ADDRESS)
-                            self.write_node(
-                                node_address=l_child,
-                                child_ptrs=l_children,
-                                keys=l_keys,
-                                values=l_data,
-                                parent_pointer=parent_address
-                            )
-                            # key -> keys
-                            child_pointers = self.get_all_child_pointers_from_node(node=node, m=m)
-                            i = bisect.bisect_left(keys, key)
-                            keys.insert(i, key)
-                            data_p.insert(i, data_address)
-                            child_pointers.insert(i + 1, NULL_ADDRESS)  # new null child
-                            self.write_node(
-                                node_address=current,
-                                child_ptrs=child_pointers,
-                                keys=keys,
-                                values=data_p,
-                                parent_pointer=parent_address
-                            )
-                            return OK
-            # if it fails: split
-            print("Split not implemented yet!")
-            # get new page (new right node)
-            new_page_address = self.tree_interface.get_new_node_address() # this also becomes the new child pointer
-            new_node = bytearray(self.tree_interface.page_size)             # in the parent
-            # distribute all the keys except the middle one
-            all_keys, all_pointers = self.get_all_keys_and_pointers_from_node(node=node,m=m)
-            all_child_pointers = self.get_all_child_pointers_from_node(node=node,m=m)
-            i = bisect.bisect_left(all_keys, key)
-            all_keys.insert(i, key)
-            all_pointers.insert(i, data_address)
-            all_child_pointers.insert(i + 1, NULL_ADDRESS) # new null child
-
-            # middle key is always at index "d"
-            middle_key = all_keys[self.order]
-            middle_pointer = all_pointers[self.order]
-            left_keys = all_keys[:self.order]
-            left_pointers = all_pointers[:self.order]
-            right_keys = all_keys[self.order+1:]
-            right_pointers = all_pointers[self.order+1:]
-            left_child_ptrs = all_child_pointers[:self.order + 1]
-            right_child_ptrs = all_child_pointers[self.order + 1:]
-
-            # # === 5. Write left node back (overwrite original) ===
-            #
-            self.write_node(
-                node_address=current,
-                child_ptrs=left_child_ptrs,
-                keys=left_keys,
-                values=left_pointers,
-                parent_pointer=parent_address
-            )
-            #
-            # # === 6. Write right node ===
-            #
-            self.write_node(
-                node_address=new_page_address,
-                child_ptrs=right_child_ptrs,
-                keys=right_keys,
-                values=right_pointers,
-                parent_pointer=parent_address
-            )
-            # # === 7. Update children's parent pointer for children moved to RIGHT ===
-            #
-            # for ptr in right_child_ptrs:
-            #     if ptr != NULL_ADDRESS:
-            #         self.update_parent_pointer(ptr, right_node_addr)
-            #
-            # # === 8. Promote middle key to parent ===
-            #
-            if parent_address == NULL_ADDRESS:
-                # Create new root
-                new_root = self.tree_interface.get_new_node_address()
-
-                root_child_ptrs = [current, new_page_address]
-                root_keys = [middle_key]
-
-                self.write_node(
-                    node_address=new_root,
-                    child_ptrs=root_child_ptrs,
-                    keys=root_keys,
-                    values=[middle_pointer],
-                    parent_pointer=NULL_ADDRESS
-                )
-
-                self.root = new_root
-                # update parent pointer for children
-                self.write_node(
-                    node_address=current,
-                    child_ptrs=left_child_ptrs,
-                    keys=left_keys,
-                    values=left_pointers,
-                    parent_pointer=new_root
-                )
-                self.write_node(
-                    node_address=new_page_address,
-                    child_ptrs=right_child_ptrs,
-                    keys=right_keys,
-                    values=right_pointers,
-                    parent_pointer=new_root
-                )
+            data_address = self.data_interface.write_entry(index=None, record=(key, record[0], record[1]))
+            dst = self.path_buffer[-1] # last node from search
+            dst_node = self.node_buffer[dst]
+            dst_m = self.get_node_m(node=dst_node)
+            if dst_m < 2*self.order:
+                dst_keys, dst_data = self.get_all_keys_and_pointers_from_node(node=dst_node, m=dst_m)
+                i = bisect.bisect_left(dst_keys, key)
+                dst_keys.insert(i, key)
+                dst_data.insert(i, data_address)
+                self.write_node(node_address=dst,
+                                child_ptrs=self.get_all_child_pointers_from_node(node=dst_node, m=dst_m),
+                                keys=dst_keys,
+                                values=dst_data,
+                                parent_pointer=0)
+                return OK
             else:
-                # Normal parent insertion
-                self.add_record(middle_key, (-1,-1), middle_pointer)
-
-        #debug
-        # self.tree_interface.read_page(index=self.root)
-        # hexdump_4byte(DEFAULT_BTREE_FILENAME)
-        return OK
+                print("Rest not implemented yet")
+                return ALREADY_EXISTS
 
     def read_record(self, key):
         if not self.root:
@@ -390,6 +167,3 @@ class BTree:
             return self.data_interface.read_entry(index=result)
         else:
             return None
-
-    def write_record(self):
-        pass

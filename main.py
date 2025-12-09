@@ -56,7 +56,7 @@ def interactive_mode_loop():
             print("Wrong input, try again")
             choice = None
         if number == 1:
-            print("add record")
+            print("add record:")
             key = int(input("Key: "))
             record = input("Record [U I]: ").split(" ")
             result = btree.add_record(key=key, record=(float(record[0]), float(record[1])))

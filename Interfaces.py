@@ -131,34 +131,6 @@ class BTreeInterface:
         self.write_buffer = node
         self.write_cached_records()
 
-# class DataInterface:
-#     def __init__(self, filename):
-#         self.file = filename
-#         self.read_buffer = None
-#         self.write_buffer = None
-#         self.read_buffer_base_address = 0
-#         self.
-#         with open(self.file, "wb"):
-#             pass
-#     def add_entry(self, key, record):
-#         data = struct.pack("<i dd", key, record[VOLTAGE_ID], record[CURRENT_ID])
-#         with open(self.file, 'ab') as f:
-#             f.write(data)
-#     def read_entry(self, search_key):
-#         with open(self.file, 'rb') as f:
-#             voltage, current = None, None
-#             data = f.read(PAIR_SIZE)
-#             if data:
-#                 key, voltage, current = struct.unpack("<i dd", data)
-#             found = False
-#             while not found and data:
-#                 if data:
-#                     key, voltage, current = struct.unpack("<i dd", data)
-#                 if key == search_key:
-#                     found = True
-#                 data = f.read(PAIR_SIZE)
-#             return (voltage, current) if found else None
-
 import os
 
 class DataInterface:
