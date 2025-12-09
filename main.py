@@ -82,6 +82,8 @@ def interactive_mode_loop():
             print("Interactive mode exitting")
             interactive_mode_running = False
         #display tree structure if choice and not exit
+        if choice and interactive_mode_running:
+            btree.display()
 def main_loop():
     program_running = True
     while program_running:

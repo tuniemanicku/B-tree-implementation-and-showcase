@@ -11,7 +11,7 @@ class BTreeInterface:
         self.write_address = 0
         self.write_buffer = None
         self.order = order
-        self.node_count = 0
+        self.node_count = 1
         self.modified = False
         # maximum page_size is determined for:
         # maximum 2d+1 pointers
@@ -21,7 +21,54 @@ class BTreeInterface:
         self.page_size = (2*order+1)*POINTER_SIZE + (2*order)*(KEY_SIZE + POINTER_SIZE) + RECORD_COUNT_SIZE + POINTER_SIZE
         self.keys_offset = (2*order+1)*POINTER_SIZE
         self.record_count_offset = (2*order+1)*POINTER_SIZE + (2*order)*(KEY_SIZE + POINTER_SIZE)
+        self.parent_pointer_offset = (2*order+1)*POINTER_SIZE + (2*order)*(KEY_SIZE + POINTER_SIZE) + RECORD_COUNT_SIZE
         print("Node size:",self.page_size)
+
+    def get_node_m(self, node):
+        m_offset = self.record_count_offset
+        return int.from_bytes(node[m_offset:m_offset + RECORD_COUNT_SIZE], byteorder='little')
+
+    def display_tree(self, node_address, depth):
+        # read node pointer and if it's not NULL deeper recursion
+        offset = 0
+        for _ in range(depth):
+            print("\t", end="")
+        print(f"Level {depth+1} node address: {node_address}")
+        current_node = self.read_page(index=node_address)
+        #
+        m_offset = self.record_count_offset
+        parent_address = int.from_bytes(current_node[m_offset+4:m_offset+4 + RECORD_COUNT_SIZE], byteorder='little')
+        #
+        print("test parent node",parent_address)
+        m = self.get_node_m(current_node)
+        end = 0
+        for i in range(0, m*POINTER_SIZE, POINTER_SIZE):
+            child_address = int.from_bytes(current_node[i:i+POINTER_SIZE], byteorder="little")
+            if child_address:
+                for _ in range(depth):
+                    print("\t", end="")
+                print("child:",child_address)
+                self.display_tree(child_address, depth + 1)
+            else:
+                for _ in range(depth):
+                    print("\t", end="")
+                print("NULL")
+            key = int.from_bytes(current_node[self.keys_offset+(i*2):self.keys_offset+(i*2)+KEY_SIZE], byteorder="little")
+            for _ in range(depth):
+                print("\t", end="")
+            print("key:", key)
+            end = i
+        end += POINTER_SIZE
+        child_address = int.from_bytes(current_node[end:end + POINTER_SIZE], byteorder="little")
+        if child_address:
+            for _ in range(depth):
+                print("\t", end="")
+            print("child:", child_address)
+            self.display_tree(child_address, depth + 1)
+        else:
+            for _ in range(depth):
+                print("\t", end="")
+            print("NULL")
 
     def get_new_node_address(self):
         self.node_count += 1

@@ -4,6 +4,7 @@ INSTRUCTION_TYPE_LENGTH = 1
 # special VALUES
 ALREADY_EXISTS = -1
 OK = 1
+NULL_ADDRESS = 0
 
 # B-tree config
 DEFAULT_BTREE_FILENAME = "btree.bin"
