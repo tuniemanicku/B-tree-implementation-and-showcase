@@ -56,9 +56,22 @@ def interactive_mode_loop():
             print("Wrong input, try again")
             choice = None
         if number == 1:
-            print("add record")
+            print("add record:")
+            key = int(input("Key: "))
+            record = input("Record [U I]: ").split(" ")
+            result = btree.add_record(key=key, record=(float(record[0]), float(record[1])))
+            if result == ALREADY_EXISTS:
+                print("Record with given key already exists")
+            else:
+                print("Record added")
         elif number == 2:
             print("read record")
+            key = int(input("Key: "))
+            result = btree.read_record(key=key)
+            if result:
+                print(f"Record found: {result}")
+            else:
+                print("Record not found")
         elif number == 3:
             print("view sorted file")
         elif number == 4:
@@ -68,7 +81,9 @@ def interactive_mode_loop():
         else:
             print("Interactive mode exitting")
             interactive_mode_running = False
-
+        #display tree structure if choice and not exit
+        if choice and interactive_mode_running:
+            btree.display()
 def main_loop():
     program_running = True
     while program_running:
