@@ -1,5 +1,11 @@
-# instruction type length in bytes
-INSTRUCTION_TYPE_LENGTH = 1
+# test file
+RECORDS_TO_GENERATE = 4
+
+INSTRUCTION_TYPE_LENGTH = 4
+ADD_INSTR = 1
+READ_INSTR = 2
+DELETE_INSTR = 3
+UPDATE_INSTR = 4
 
 # special VALUES
 ALREADY_EXISTS = -1
@@ -9,6 +15,7 @@ NULL_ADDRESS = 0
 # B-tree config
 DEFAULT_BTREE_FILENAME = "btree.bin"
 DEFAULT_DATA_FILENAME = "data.bin"
+DEFAULT_TEST_DATA_FILENAME = "test.bin"
 
 POINTER_SIZE = 4
 # RECORD_COUNT_SIZE = 4
@@ -17,7 +24,7 @@ BTREE_ORDER = 2
 # # record config
 # VOLTAGE_ID = 0
 # CURRENT_ID = 1
-# RECORD_SIZE = 16 # two double precision floating point numbers (8*2)
+RECORD_SIZE = 16 # two double precision floating point numbers (8*2)
 # KEY_SIZE = 4 # one 32-bit integer
 PAIR_SIZE = 20 # pair of two above
 DATA_PAGE_SIZE = 10
