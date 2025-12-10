@@ -39,7 +39,7 @@ class BTreeInterface:
         m_offset = self.record_count_offset
         parent_address = int.from_bytes(current_node[m_offset+4:m_offset+4 + RECORD_COUNT_SIZE], byteorder='little')
         #
-        print("test parent node",parent_address)
+        # print("test parent node",parent_address)
         m = self.get_node_m(current_node)
         end = 0
         for i in range(0, m*POINTER_SIZE, POINTER_SIZE):
@@ -52,7 +52,7 @@ class BTreeInterface:
             else:
                 for _ in range(depth):
                     print("\t", end="")
-                print("NULL")
+                print("-NULL")
             key = int.from_bytes(current_node[self.keys_offset+(i*2):self.keys_offset+(i*2)+KEY_SIZE], byteorder="little")
             for _ in range(depth):
                 print("\t", end="")
@@ -68,7 +68,7 @@ class BTreeInterface:
         else:
             for _ in range(depth):
                 print("\t", end="")
-            print("NULL")
+            print("-NULL")
 
     def get_new_node_address(self):
         self.node_count += 1
@@ -93,10 +93,11 @@ class BTreeInterface:
 
     def read_page(self, index):
         self.write_cached_records()
-        if not self.read_buffer or (self.write_address == self.base_address and self.modified):
-            self.get_new_read_buffer(index)
-        if not (self.base_address <= index < self.base_address + self.page_size):
-            self.get_new_read_buffer(index)
+        self.get_new_read_buffer(index) #TODO ---------------------------------------sdsdffsdf
+        # if not self.read_buffer or (self.write_address == self.base_address and self.modified):
+        #     self.get_new_read_buffer(index)
+        # if not (self.base_address <= index < self.base_address + self.page_size):
+        #     self.get_new_read_buffer(index)
         return_value = self.read_buffer
         return bytearray(return_value) if return_value else None
 

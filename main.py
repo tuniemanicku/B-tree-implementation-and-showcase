@@ -2,7 +2,7 @@ import os.path
 
 from BTree import BTree
 from utils import *
-from test import TreeLoader
+from test import TreeLoader, hexdump_4byte
 
 def test_mode_loop():
     btree = BTree()
@@ -19,13 +19,16 @@ def test_mode_loop():
         else:
             print("File does not exist")
     if fname == "exit":
-        return
+        return None
     tree_loader = TreeLoader(fname, btree)
+    tree_loader.write_test_data() # temp ----------------------------------------------------------
     tree_loader.load()
     btree.display()
+    return btree
 
-def interactive_mode_loop():
-    btree = BTree()
+def interactive_mode_loop(btree):
+    if not btree:
+        btree = BTree()
     print("----------------------------")
     print("Interactive mode")
     interactive_mode_running = True
@@ -79,8 +82,11 @@ def interactive_mode_loop():
         #display tree structure if choice and not exit
         if choice and interactive_mode_running:
             btree.display()
+        # hexdump_4byte("btree.bin")
+
 def main_loop():
     program_running = True
+    btree = None
     while program_running:
         print("----------------------------")
         print("SBD - Task 2 - B-tree")
@@ -104,9 +110,9 @@ def main_loop():
                 print("Wrong input, try again")
                 choice = None
         if number == 1:
-            test_mode_loop()
+            btree = test_mode_loop()
         elif number == 2:
-            interactive_mode_loop()
+            interactive_mode_loop(btree)
         else:
             print("Program exitting")
             program_running = False

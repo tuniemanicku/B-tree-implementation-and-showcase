@@ -32,37 +32,13 @@ class TreeLoader:
 
     def write_test_data(self):
         with open(DEFAULT_TEST_DATA_FILENAME, "wb") as f:
-            f.write(ADD_INSTR.to_bytes(INSTRUCTION_TYPE_LENGTH, "little"))
-            f.write(struct.pack("<i dd", 1, 1, 1))
+            to_add = [1, 2, 3, 5, 6, 7, 8, 10, 9, 11, 12, 14, 13, 4, 20, 30, 40, 50, 35, 16, 15]
+            for i in range(len(to_add)):
+                f.write(ADD_INSTR.to_bytes(INSTRUCTION_TYPE_LENGTH, "little"))
+                f.write(struct.pack("<i dd", to_add[i], to_add[i], to_add[i]))
 
-            f.write(ADD_INSTR.to_bytes(INSTRUCTION_TYPE_LENGTH, "little"))
-            f.write(struct.pack("<i dd", 2, 2, 2))
-
-
-            f.write(ADD_INSTR.to_bytes(INSTRUCTION_TYPE_LENGTH, "little"))
-            f.write(struct.pack("<i dd", 3, 3, 3))
-
-            f.write(ADD_INSTR.to_bytes(INSTRUCTION_TYPE_LENGTH, "little"))
-            f.write(struct.pack("<i dd", 4, 4, 4))
-
-            f.write(ADD_INSTR.to_bytes(INSTRUCTION_TYPE_LENGTH, "little"))
-            f.write(struct.pack("<i dd", 5, 5, 5))
-
-            f.write(ADD_INSTR.to_bytes(INSTRUCTION_TYPE_LENGTH, "little"))
-            f.write(struct.pack("<i dd", 6, 6, 6))
-
-            f.write(ADD_INSTR.to_bytes(INSTRUCTION_TYPE_LENGTH, "little"))
-            f.write(struct.pack("<i dd", 7, 7, 7))
-
-            f.write(ADD_INSTR.to_bytes(INSTRUCTION_TYPE_LENGTH, "little"))
-            f.write(struct.pack("<i dd", 12, 12, 12))
-
-            # f.write(ADD_INSTR.to_bytes(INSTRUCTION_TYPE_LENGTH, "little"))
-            # f.write(struct.pack("<i dd", 8, 8, 8))
-
-
-tl = TreeLoader(filename=DEFAULT_TEST_DATA_FILENAME, btree=BTree())
-tl.write()
+#tl = TreeLoader(filename=DEFAULT_TEST_DATA_FILENAME, btree=BTree())
+#tl.write_test_data()
 
 def dump_test_data(filename):
     print(f"--- Dumping contents of {filename} ---")
@@ -90,7 +66,7 @@ def dump_test_data(filename):
                 break
 
         print("--- End of file ---")
-dump_test_data(DEFAULT_TEST_DATA_FILENAME)
+#dump_test_data(DEFAULT_TEST_DATA_FILENAME)
 
 # ----------------------------TESTING THE B-TREE INTERFACE------------------------------
 # # B-tree interface tests
@@ -117,7 +93,7 @@ def hexdump_4byte(file_path):
             print(f"{offset:08X}  {hex_bytes:<11}  {ascii_chars}")
             offset += 4
 #
-# hexdump_4byte("test.bin")
+# hexdump_4byte("btree.bin")
 
 # ----------------------------TESTING THE DATA INTERFACE------------------------------
 # # Data interface tests
