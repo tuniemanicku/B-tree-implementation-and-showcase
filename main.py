@@ -21,6 +21,7 @@ def test_mode_loop():
     if fname == "exit":
         return None
     tree_loader = TreeLoader(fname, btree)
+    tree_loader.write_test_data() # temp ----------------------------------------------------------
     tree_loader.load()
     btree.display()
     return btree
@@ -81,7 +82,7 @@ def interactive_mode_loop(btree):
         #display tree structure if choice and not exit
         if choice and interactive_mode_running:
             btree.display()
-        hexdump_4byte("btree.bin")
+        # hexdump_4byte("btree.bin")
 
 def main_loop():
     program_running = True

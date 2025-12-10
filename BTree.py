@@ -171,7 +171,7 @@ class BTree:
             return OK
         else:
             if self.get_parent_pointer_from_node(dst_node):
-                self.split_node()
+                self.split_node(dst, dst_node, key, record_address, NULL_ADDRESS)
                 return OK
             else:
                 self.split_root(dst, dst_node, key, record_address, NULL_ADDRESS)
@@ -292,11 +292,63 @@ class BTree:
                         )
         print("I can do this right!!!")
 
-    def split_node(self):
+    def split_node(self, dst, dst_node, key, record_address, new_child):
+        dst_m = self.get_node_m(node=dst_node)
+        dst_keys, dst_pointers = self.get_all_keys_and_pointers_from_node(node=dst_node, m=dst_m)
+        dst_children = self.get_all_child_pointers_from_node(node=dst_node, m=dst_m)
+
+        i = bisect.bisect_left(dst_keys, key)
+        dst_keys.insert(i, key)
+        dst_pointers.insert(i, record_address)
+        middle_key = len(dst_keys)//2
+
+        # adjust new pointer
+        dst_children.insert(i + 1, new_child)
+        halfway = len(dst_children) // 2
+
+        parent = self.get_parent_pointer_from_node(dst_node)
+        # new node becomes right node
+        new_right = self.tree_interface.get_new_node_address()
+        self.write_node(node_address=new_right,
+                        child_ptrs=dst_children[halfway:], ######################
+                        keys=dst_keys[middle_key+1:],
+                        values=dst_pointers[middle_key+1:],
+                        parent_pointer=parent)
+        # old node is left node
+        self.write_node(node_address=dst,
+                        child_ptrs=dst_children[:halfway], ######################
+                        keys=dst_keys[:middle_key],
+                        values=dst_pointers[:middle_key],
+                        parent_pointer=parent)
+        # TODO - insert that into parent
+        parent_node = self.node_buffer[parent]
+        parent_m = self.get_node_m(node=parent_node)
+        parent_parent = self.get_parent_pointer_from_node(parent_node)
+        key_to_go_up = dst_keys[middle_key]
+        ptr_to_go_up = dst_pointers[middle_key]
+        if not parent_parent and parent_m == 2*self.order:
+            self.split_root(parent, parent_node, key_to_go_up, ptr_to_go_up, new_right)
+        elif parent_m == 2*self.order:
+            self.split_node(parent, parent_node, key_to_go_up, ptr_to_go_up, new_right)
+        else:
+            self.insert_into_parent(parent, parent_node, key_to_go_up, ptr_to_go_up, new_right)
         print("I can split node!!!")
+    def insert_into_parent(self, dst, dst_node, key, record_address, new_child):
+        dst_m = self.get_node_m(node=dst_node)
+        dst_keys, dst_pointers = self.get_all_keys_and_pointers_from_node(node=dst_node, m=dst_m)
+        dst_children = self.get_all_child_pointers_from_node(node=dst_node, m=dst_m)
+        i = bisect.bisect_left(dst_keys, key)
+        dst_keys.insert(i, key)
+        dst_pointers.insert(i, record_address)
+        dst_children.insert(i+1, new_child)
+        parent = self.get_parent_pointer_from_node(dst_node)
+        self.write_node(node_address=dst,
+                        child_ptrs=dst_children,
+                        keys=dst_keys,
+                        values=dst_pointers,
+                        parent_pointer=parent)
 
     def split_root(self, dst, dst_node, key, record_address, new_child):
-        # zdobyc wszystkie klucze i adresy rekordow
         dst_m = self.get_node_m(node=dst_node)
         dst_keys, dst_pointers = self.get_all_keys_and_pointers_from_node(node=dst_node, m=dst_m)
         dst_children = self.get_all_child_pointers_from_node(node=dst_node, m=dst_m)
