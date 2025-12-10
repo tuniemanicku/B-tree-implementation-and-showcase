@@ -32,37 +32,13 @@ class TreeLoader:
 
     def write_test_data(self):
         with open(DEFAULT_TEST_DATA_FILENAME, "wb") as f:
-            f.write(ADD_INSTR.to_bytes(INSTRUCTION_TYPE_LENGTH, "little"))
-            f.write(struct.pack("<i dd", 1, 1, 1))
-
-            f.write(ADD_INSTR.to_bytes(INSTRUCTION_TYPE_LENGTH, "little"))
-            f.write(struct.pack("<i dd", 2, 2, 2))
-
-
-            f.write(ADD_INSTR.to_bytes(INSTRUCTION_TYPE_LENGTH, "little"))
-            f.write(struct.pack("<i dd", 3, 3, 3))
-
-            f.write(ADD_INSTR.to_bytes(INSTRUCTION_TYPE_LENGTH, "little"))
-            f.write(struct.pack("<i dd", 4, 4, 4))
-
-            f.write(ADD_INSTR.to_bytes(INSTRUCTION_TYPE_LENGTH, "little"))
-            f.write(struct.pack("<i dd", 5, 5, 5))
-
-            f.write(ADD_INSTR.to_bytes(INSTRUCTION_TYPE_LENGTH, "little"))
-            f.write(struct.pack("<i dd", 6, 6, 6))
-
-            f.write(ADD_INSTR.to_bytes(INSTRUCTION_TYPE_LENGTH, "little"))
-            f.write(struct.pack("<i dd", 7, 7, 7))
-
-            f.write(ADD_INSTR.to_bytes(INSTRUCTION_TYPE_LENGTH, "little"))
-            f.write(struct.pack("<i dd", 12, 12, 12))
-
-            # f.write(ADD_INSTR.to_bytes(INSTRUCTION_TYPE_LENGTH, "little"))
-            # f.write(struct.pack("<i dd", 8, 8, 8))
-
+            to_add = [1, 2, 3, 5, 6, 7, 8, 10]
+            for i in range(len(to_add)):
+                f.write(ADD_INSTR.to_bytes(INSTRUCTION_TYPE_LENGTH, "little"))
+                f.write(struct.pack("<i dd", to_add[i], to_add[i], to_add[i]))
 
 #tl = TreeLoader(filename=DEFAULT_TEST_DATA_FILENAME, btree=BTree())
-#tl.write()
+#tl.write_test_data()
 
 def dump_test_data(filename):
     print(f"--- Dumping contents of {filename} ---")
@@ -117,7 +93,7 @@ def hexdump_4byte(file_path):
             print(f"{offset:08X}  {hex_bytes:<11}  {ascii_chars}")
             offset += 4
 #
-# hexdump_4byte("test.bin")
+# hexdump_4byte("btree.bin")
 
 # ----------------------------TESTING THE DATA INTERFACE------------------------------
 # # Data interface tests

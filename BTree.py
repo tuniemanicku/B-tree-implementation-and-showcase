@@ -152,22 +152,200 @@ class BTree:
                                 child_ptrs=self.get_all_child_pointers_from_node(node=dst_node, m=dst_m),
                                 keys=dst_keys,
                                 values=dst_data,
-                                parent_pointer=0)
+                                parent_pointer=self.get_parent_pointer_from_node(dst_node))
                 return OK
             else:
-                # try compensation
-                sibling = self.compensation_possible(node=dst_node, node_address=dst)
-                if sibling:
-                    print("Compensation not implemented yet")
-                else:
-                    print("Split not implemented yet")
-                return ALREADY_EXISTS
+                return self.handle_overflow(dst_node,dst, record, key, record_address=data_address)
 
-    def compensate(self):
-        print("I can do this!!!")
+    def handle_overflow(self, dst_node, dst, record, key, record_address):
+        # try compensation
+        idd, sibling, sibling_node, parent = None, None, None, None
+        output = self.compensation_possible(node=dst_node, node_address=dst)
+        if output:
+            idd, sibling, sibling_node, parent = output
+        if idd == 0:
+            self.compensate_left(dst, dst_node, sibling, sibling_node, record, record_address, parent, key)
+            return OK
+        elif idd == 1:
+            self.compensate_right(dst, dst_node, sibling, sibling_node, record, record_address, parent, key)
+            return OK
+        else:
+            if self.get_parent_pointer_from_node(dst_node):
+                self.split_node()
+                return OK
+            else:
+                self.split_root(dst, dst_node, key, record_address, NULL_ADDRESS)
+                return OK
 
-    def split(self):
-        print("I can do this too!!!")
+    def compensate_left(self, dst, dst_node, sibling, sibling_node, record, record_address, parent, key):
+        sibling_m = self.get_node_m(node=sibling_node)
+        temp_keys, temp_pointers = self.get_all_keys_and_pointers_from_node(node=sibling_node, m=sibling_m)
+        dst_m = self.get_node_m(node=dst_node)
+        keys, pointers = self.get_all_keys_and_pointers_from_node(node=dst_node, m=dst_m)
+        for x in range(len(keys)):
+            i = bisect.bisect_left(temp_keys, keys[x])
+            temp_keys.insert(i, keys[x])
+            temp_pointers.insert(i, pointers[x])
+        parent_node = self.node_buffer[parent]
+        parent_m = self.get_node_m(node=parent_node)
+        p_keys, p_ptrs = self.get_all_keys_and_pointers_from_node(node=parent_node, m=parent_m)
+        children = self.get_all_child_pointers_from_node(node=parent_node, m=parent_m)
+        child_index = children.index(dst)
+        the_key = p_keys[child_index-1]
+        the_ptr = p_ptrs[child_index-1]
+        i = bisect.bisect_left(temp_keys, the_key)
+        temp_keys.insert(i, the_key)
+        temp_pointers.insert(i, the_ptr)
+        # new key
+        i = bisect.bisect_left(temp_keys, key)
+        temp_keys.insert(i, key)
+        temp_pointers.insert(i, record_address)
+        #
+        mid_index = len(temp_keys)//2
+        l_keys = temp_keys[:mid_index]
+        l_ptrs = temp_pointers[:mid_index]
+        parent_key = temp_keys[mid_index]
+        parent_ptr = temp_pointers[mid_index]
+        dst_keys = temp_keys[mid_index+1:]
+        dst_ptrs = temp_pointers[mid_index+1:]
+        # OF node
+        self.write_node(node_address=dst,
+                        child_ptrs=self.get_all_child_pointers_from_node(node=dst_node, m=dst_m), #update TODO -------------
+                        keys=dst_keys,
+                        values=dst_ptrs,
+                        parent_pointer=parent
+                        )
+        # left node
+        self.write_node(node_address=sibling,
+                        child_ptrs=self.get_all_child_pointers_from_node(node=sibling_node, m=sibling_m), # TODO -------------
+                        keys=l_keys,
+                        values=l_ptrs,
+                        parent_pointer=parent
+                        )
+        # parent
+        p_keys[child_index - 1] = parent_key
+        p_ptrs[child_index - 1] = parent_ptr
+        self.write_node(node_address=parent,
+                        child_ptrs=self.get_all_child_pointers_from_node(node=parent_node, m=parent_m),
+                        keys=p_keys,
+                        values=p_ptrs,
+                        parent_pointer=self.get_parent_pointer_from_node(parent_node)
+                        )
+        print("I can do this left!!!")
+
+    def compensate_right(self, dst, dst_node, sibling, sibling_node, record, record_address, parent, key):
+        sibling_m = self.get_node_m(node=sibling_node)
+        temp_keys, temp_pointers = self.get_all_keys_and_pointers_from_node(node=sibling_node, m=sibling_m)
+        dst_m = self.get_node_m(node=dst_node)
+        keys, pointers = self.get_all_keys_and_pointers_from_node(node=dst_node, m=dst_m)
+        for x in range(len(keys)):
+            i = bisect.bisect_left(temp_keys, keys[x])
+            temp_keys.insert(i, keys[x])
+            temp_pointers.insert(i, pointers[x])
+        parent_node = self.node_buffer[parent]
+        parent_m = self.get_node_m(node=parent_node)
+        p_keys, p_ptrs = self.get_all_keys_and_pointers_from_node(node=parent_node, m=parent_m)
+        children = self.get_all_child_pointers_from_node(node=parent_node, m=parent_m)
+        child_index = children.index(dst)
+        #######################################
+        the_key = p_keys[child_index]
+        the_ptr = p_ptrs[child_index]
+        i = bisect.bisect_left(temp_keys, the_key)
+        temp_keys.insert(i, the_key)
+        temp_pointers.insert(i, the_ptr)
+        # new key
+        i = bisect.bisect_left(temp_keys, key)
+        temp_keys.insert(i, key)
+        temp_pointers.insert(i, record_address)
+        ###########################################
+        mid_index = len(temp_keys) // 2
+        r_keys = temp_keys[mid_index+1:]
+        r_ptrs = temp_pointers[mid_index+1:]
+        parent_key = temp_keys[mid_index]
+        parent_ptr = temp_pointers[mid_index]
+        dst_keys = temp_keys[:mid_index]
+        dst_ptrs = temp_pointers[:mid_index]
+        # OF node
+        self.write_node(node_address=dst,
+                        child_ptrs=self.get_all_child_pointers_from_node(node=dst_node, m=dst_m),
+                        # update TODO -------------
+                        keys=dst_keys,
+                        values=dst_ptrs,
+                        parent_pointer=parent
+                        )
+        # right node
+        self.write_node(node_address=sibling,
+                        child_ptrs=self.get_all_child_pointers_from_node(node=sibling_node, m=sibling_m),
+                        # TODO -------------
+                        keys=r_keys,
+                        values=r_ptrs,
+                        parent_pointer=parent
+                        )
+        # parent
+        p_keys[child_index] = parent_key
+        p_ptrs[child_index] = parent_ptr
+        self.write_node(node_address=parent,
+                        child_ptrs=self.get_all_child_pointers_from_node(node=parent_node, m=parent_m),
+                        keys=p_keys,
+                        values=p_ptrs,
+                        parent_pointer=self.get_parent_pointer_from_node(parent_node)
+                        )
+        print("I can do this right!!!")
+
+    def split_node(self):
+        print("I can split node!!!")
+
+    def split_root(self, dst, dst_node, key, record_address, new_child):
+        # zdobyc wszystkie klucze i adresy rekordow
+        dst_m = self.get_node_m(node=dst_node)
+        dst_keys, dst_pointers = self.get_all_keys_and_pointers_from_node(node=dst_node, m=dst_m)
+        dst_children = self.get_all_child_pointers_from_node(node=dst_node, m=dst_m)
+
+        i = bisect.bisect_left(dst_keys, key)
+        dst_keys.insert(i, key)
+        dst_pointers.insert(i, record_address)
+        middle_key = len(dst_keys)//2
+
+        # adjust new pointer
+        dst_children.insert(i+1, new_child)
+        halfway = len(dst_children)//2
+
+        new_left = self.tree_interface.get_new_node_address()
+        new_right = self.tree_interface.get_new_node_address()
+        #root node
+        root_key = [dst_keys[middle_key]]
+        root_pointer = [dst_pointers[middle_key]]
+        root_children = [new_left, new_right]
+        root_address = self.root
+        root_parent = NULL_ADDRESS
+        self.write_node(node_address=root_address,
+                        child_ptrs=root_children,
+                        keys=root_key,
+                        values=root_pointer,
+                        parent_pointer=root_parent)
+        #left node
+        left_keys = dst_keys[:middle_key]
+        left_pointers = dst_pointers[:middle_key]
+        left_children = dst_children[:halfway] #????
+        left_address = new_left
+        left_parent = root_address
+        self.write_node(node_address=left_address,
+                        child_ptrs=left_children,
+                        keys=left_keys,
+                        values=left_pointers,
+                        parent_pointer=left_parent)
+        #right node
+        right_keys = dst_keys[middle_key+1:]
+        right_pointers = dst_pointers[middle_key+1:]
+        right_children = dst_children[halfway:] #?????
+        right_address = new_right
+        right_parent = root_address
+        self.write_node(node_address=right_address,
+                        child_ptrs=right_children,
+                        keys=right_keys,
+                        values=right_pointers,
+                        parent_pointer=right_parent)
+        print("I can split root!!!")
 
     def compensation_possible(self, node, node_address):
         parent_ptr_offset = self.tree_interface.parent_pointer_offset
@@ -189,11 +367,11 @@ class BTree:
             if left_sibling:
                 left_node = self.tree_interface.read_page(index=left_sibling)
                 if self.get_node_m(node=left_node) < 2*self.order:
-                    return left_sibling
+                    return (0,left_sibling,left_node, parent_pointer)
             if right_sibling:
                 right_node = self.tree_interface.read_page(index=right_sibling)
                 if self.get_node_m(node=right_node) < 2*self.order:
-                    return right_sibling
+                    return (1, right_sibling, right_node, parent_pointer)
             # return the sibling to compensate (address, whatever needed...)
             return None
 
