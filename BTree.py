@@ -156,8 +156,21 @@ class BTree:
                                 parent_pointer=0)
                 return OK
             else:
-                print("Compensation and split not implemented yet")
+                # try compensation
+                if self.compensation_possible(node=dst_node):
+                    print("Compensation not implemented yet")
+                else:
+                    print("Split not implemented yet")
+                # else split
                 return ALREADY_EXISTS
+    def compensation_possible(self, node):
+        parent_ptr_offset = self.tree_interface.parent_pointer_offset
+        parent_pointer = int.from_bytes(node[parent_ptr_offset:parent_ptr_offset + POINTER_SIZE],byteorder='little')
+        if not parent_pointer:
+            return False
+        else:
+            # check for siblings with less than 2d keys
+            return True
 
     def read_record(self, key):
         if not self.root:

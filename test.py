@@ -61,8 +61,8 @@ class TreeLoader:
             # f.write(struct.pack("<i dd", 8, 8, 8))
 
 
-tl = TreeLoader(filename=DEFAULT_TEST_DATA_FILENAME, btree=BTree())
-tl.write()
+#tl = TreeLoader(filename=DEFAULT_TEST_DATA_FILENAME, btree=BTree())
+#tl.write()
 
 def dump_test_data(filename):
     print(f"--- Dumping contents of {filename} ---")
@@ -90,7 +90,7 @@ def dump_test_data(filename):
                 break
 
         print("--- End of file ---")
-dump_test_data(DEFAULT_TEST_DATA_FILENAME)
+#dump_test_data(DEFAULT_TEST_DATA_FILENAME)
 
 # ----------------------------TESTING THE B-TREE INTERFACE------------------------------
 # # B-tree interface tests

@@ -52,7 +52,7 @@ class BTreeInterface:
             else:
                 for _ in range(depth):
                     print("\t", end="")
-                print("NULL")
+                print("-NULL")
             key = int.from_bytes(current_node[self.keys_offset+(i*2):self.keys_offset+(i*2)+KEY_SIZE], byteorder="little")
             for _ in range(depth):
                 print("\t", end="")
@@ -68,7 +68,7 @@ class BTreeInterface:
         else:
             for _ in range(depth):
                 print("\t", end="")
-            print("NULL")
+            print("-NULL")
 
     def get_new_node_address(self):
         self.node_count += 1
