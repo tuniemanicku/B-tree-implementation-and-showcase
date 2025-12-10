@@ -1,5 +1,3 @@
-from urllib.parse import to_bytes
-
 from Interfaces import *
 from utils import *
 # from test import *
@@ -91,6 +89,10 @@ class BTree:
             pointers.append(read_pointer)
         return pointers
 
+    def get_parent_pointer_from_node(self, node):
+        offset = self.tree_interface.parent_pointer_offset
+        return int.from_bytes(node[offset:offset + POINTER_SIZE], byteorder='little')
+
     def search(self, search_key):
         current = self.root
         self.path_buffer = []
@@ -118,9 +120,6 @@ class BTree:
             if search_key > key:
                 current = int.from_bytes(node[(end//2)+POINTER_SIZE:(end//2)+POINTER_SIZE*2], byteorder='little')
         return None
-
-    def compensate(self):
-        pass
 
     def add_record(self, key: int, record: tuple):
         if not self.root:
@@ -157,20 +156,46 @@ class BTree:
                 return OK
             else:
                 # try compensation
-                if self.compensation_possible(node=dst_node):
+                sibling = self.compensation_possible(node=dst_node, node_address=dst)
+                if sibling:
                     print("Compensation not implemented yet")
                 else:
                     print("Split not implemented yet")
-                # else split
                 return ALREADY_EXISTS
-    def compensation_possible(self, node):
+
+    def compensate(self):
+        print("I can do this!!!")
+
+    def split(self):
+        print("I can do this too!!!")
+
+    def compensation_possible(self, node, node_address):
         parent_ptr_offset = self.tree_interface.parent_pointer_offset
         parent_pointer = int.from_bytes(node[parent_ptr_offset:parent_ptr_offset + POINTER_SIZE],byteorder='little')
         if not parent_pointer:
-            return False
+            return None
         else:
+            parent_node = self.node_buffer[parent_pointer]
+            parent_m = self.get_node_m(node=parent_node)
+            children = self.get_all_child_pointers_from_node(node=parent_node, m=parent_m)
+            i = children.index(node_address)
             # check for siblings with less than 2d keys
-            return True
+            left_sibling = None
+            right_sibling = None
+            if i-1 >= 0:
+                left_sibling = children[i-1]
+            if i+1 < parent_m + 1:
+                right_sibling = children[i+1]
+            if left_sibling:
+                left_node = self.tree_interface.read_page(index=left_sibling)
+                if self.get_node_m(node=left_node) < 2*self.order:
+                    return left_sibling
+            if right_sibling:
+                right_node = self.tree_interface.read_page(index=right_sibling)
+                if self.get_node_m(node=right_node) < 2*self.order:
+                    return right_sibling
+            # return the sibling to compensate (address, whatever needed...)
+            return None
 
     def read_record(self, key):
         if not self.root:
