@@ -2,7 +2,7 @@ from urllib.parse import to_bytes
 
 from Interfaces import *
 from utils import *
-from test import *
+# from test import *
 import bisect
 
 class BTree:
@@ -135,7 +135,7 @@ class BTree:
             node[rcoffset:rcoffset + RECORD_COUNT_SIZE] = m.to_bytes(RECORD_COUNT_SIZE, "little")
             self.tree_interface.write(index=self.root+self.tree_interface.page_size-POINTER_SIZE, value=0)
             self.tree_interface.write_page(index=self.root, node=node)
-            hexdump_4byte(DEFAULT_BTREE_FILENAME)
+            # hexdump_4byte(DEFAULT_BTREE_FILENAME)
             return OK
         if self.search(search_key=key):
             return ALREADY_EXISTS
@@ -156,7 +156,7 @@ class BTree:
                                 parent_pointer=0)
                 return OK
             else:
-                print("Rest not implemented yet")
+                print("Compensation and split not implemented yet")
                 return ALREADY_EXISTS
 
     def read_record(self, key):

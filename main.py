@@ -2,6 +2,7 @@ import os.path
 
 from BTree import BTree
 from utils import *
+from test import TreeLoader
 
 def test_mode_loop():
     btree = BTree()
@@ -19,15 +20,9 @@ def test_mode_loop():
             print("File does not exist")
     if fname == "exit":
         return
-    with open(fname, "rb") as test_file:
-        instruction = test_file.read(INSTRUCTION_TYPE_LENGTH)
-        if not instruction:
-            print("Test file empty")
-            return
-        while instruction:
-            print("Process instruction")
-            instruction = test_file.read()
-            break
+    tree_loader = TreeLoader(fname, btree)
+    tree_loader.load()
+    btree.display()
 
 def interactive_mode_loop():
     btree = BTree()
