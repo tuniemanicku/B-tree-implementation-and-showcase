@@ -447,16 +447,6 @@ class BTree:
             if not self.search(search_key=key):
                 return DOES_NOT_EXIST
             else:
-                # here comes the logic
-                # if leaf -> delete
-                #   check underflow
-                #   if underflow
-                #       handle underflow
-                # else -> replace with smallest child from subtree
-                #   do this recursively until leaf
-                #   check underflow
-                #   if underflow
-                #       handle underflow
                 current = self.path_buffer[-1]
                 current_node = self.node_buffer[current]
                 current_m = self.get_node_m(node=current_node)
@@ -477,23 +467,58 @@ class BTree:
                     child_node = self.tree_interface.read_page(index=child)
                     self.node_buffer[child] = child_node
                     child_m = self.get_node_m(node=child_node)
+                    # get child smallest key and write it to node and recursively delete this key
+                    ch_keys, ch_pointers = self.get_all_keys_and_pointers_from_node(node=child_node, m=child_m)
+                    new_key = ch_keys[0]
+                    current_keys[i] = new_key
+                    current_pointers[i] = ch_pointers[0]
+                    self.write_node(node_address=current,
+                                    child_ptrs=current_children,
+                                    keys=current_keys,
+                                    values=current_pointers,
+                                    parent_pointer=current_parent)
                     if not self.get_all_child_pointers_from_node(child_node, child_m)[0]: # if leaf
-                        ch_keys, ch_pointers = self.get_all_keys_and_pointers_from_node(node=child_node, m=child_m)
-                        new_key = ch_keys[0]
-                        current_keys[i] = new_key
-                        current_pointers[i] = ch_pointers[0]
-                        self.write_node(node_address=current,
-                                        child_ptrs=current_children,
-                                        keys=current_keys,
-                                        values=current_pointers,
-                                        parent_pointer=current_parent)
                         self.leaf_pop(child, child_node, child_m, new_key, from_parent=True)
                     else:
                         # call recursively subtree_pop
+                        self.subtree_pop(child, child_node, child_m, new_key, from_parent=True)
                         pass
                 return OK
-    def subtree_pop(self):
-        pass
+
+    def subtree_pop(self, dst, dst_node, dst_m, key, from_parent=False):
+        dst_keys, dst_pointers = self.get_all_keys_and_pointers_from_node(dst_node, dst_m)
+        dst_children = self.get_all_child_pointers_from_node(dst_node, dst_m)
+        dst_parent = self.get_parent_pointer_from_node(dst_node)
+
+        # replace with smallest key from child on the right
+        i = dst_keys.index(key)
+        # delete corresponding data
+        data_to_delete = dst_pointers[i]
+        if not from_parent:
+            self.data_interface.write_entry(index=data_to_delete, record=DELETE_RECORD)
+        # get child for replacement
+        child = dst_children[i + 1]
+        self.path_buffer.append(child)
+        child_node = self.tree_interface.read_page(index=child)
+        self.node_buffer[child] = child_node
+        child_m = self.get_node_m(node=child_node)
+        # get child smallest key and write it to node and recursively delete this key
+        ch_keys, ch_pointers = self.get_all_keys_and_pointers_from_node(node=child_node, m=child_m)
+        new_key = ch_keys[0]
+        dst_keys[i] = new_key
+        dst_pointers[i] = ch_pointers[0]
+        self.write_node(node_address=dst,
+                        child_ptrs=dst_children,
+                        keys=dst_keys,
+                        values=dst_pointers,
+                        parent_pointer=dst_parent)
+        if not self.get_all_child_pointers_from_node(child_node, child_m)[0]:  # if leaf
+            self.leaf_pop(child, child_node, child_m, new_key, from_parent=True)
+        else:
+            # call recursively subtree_pop
+            self.subtree_pop(child, child_node, child_m, new_key, from_parent=True)
+            pass
+
     def leaf_pop(self, dst, dst_node, dst_m, key, from_parent=False):
         dst_keys, dst_pointers = self.get_all_keys_and_pointers_from_node(dst_node, dst_m)
         dst_children = self.get_all_child_pointers_from_node(dst_node, dst_m)
