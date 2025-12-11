@@ -21,18 +21,18 @@ class TreeLoader:
 
                 instruction_type = int.from_bytes(f.read(INSTRUCTION_TYPE_LENGTH), byteorder="little")
 
-    def write(self):
+    def write_random_data(self, to_generate):
         with open(DEFAULT_TEST_DATA_FILENAME, "wb") as f:
-            for i in range(RECORDS_TO_GENERATE):
+            for i in range(to_generate):
                 f.write(ADD_INSTR.to_bytes(INSTRUCTION_TYPE_LENGTH, "little"))
-                rand_key = random.randint(1,15)
+                rand_key = random.randint(1,KEY_MAX_VALUE)
                 rand_u = random.random()*20
                 rand_i = random.random()
                 f.write(struct.pack("<i dd", rand_key, rand_u, rand_i))
 
     def write_test_data(self):
         with open(DEFAULT_TEST_DATA_FILENAME, "wb") as f:
-            to_add = [1, 2, 3, 5, 6, 7, 8, 10, 9, 11, 12, 14, 13, 4, 20, 30, 40, 50, 35, 16, 15]
+            to_add = [1, 2, 3, 5, 6, 7, 8, 10, 16, 20]
             for i in range(len(to_add)):
                 f.write(ADD_INSTR.to_bytes(INSTRUCTION_TYPE_LENGTH, "little"))
                 f.write(struct.pack("<i dd", to_add[i], to_add[i], to_add[i]))

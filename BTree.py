@@ -100,7 +100,7 @@ class BTree:
         first = True
         while current or first:
             first = False
-            print(current)
+            # print(current)
             self.path_buffer.append(current)
             node = self.tree_interface.read_page(index=current)
             self.node_buffer[current] = node
@@ -231,7 +231,7 @@ class BTree:
                         values=p_ptrs,
                         parent_pointer=self.get_parent_pointer_from_node(parent_node)
                         )
-        print("I can do this left!!!")
+        # print("I can do this left!!!")
 
     def compensate_right(self, dst, dst_node, sibling, sibling_node, record, record_address, parent, key):
         sibling_m = self.get_node_m(node=sibling_node)
@@ -290,7 +290,7 @@ class BTree:
                         values=p_ptrs,
                         parent_pointer=self.get_parent_pointer_from_node(parent_node)
                         )
-        print("I can do this right!!!")
+        # print("I can do this right!!!")
 
     def split_node(self, dst, dst_node, key, record_address, new_child):
         dst_m = self.get_node_m(node=dst_node)
@@ -332,7 +332,7 @@ class BTree:
             self.split_node(parent, parent_node, key_to_go_up, ptr_to_go_up, new_right)
         else:
             self.insert_into_parent(parent, parent_node, key_to_go_up, ptr_to_go_up, new_right)
-        print("I can split node!!!")
+        # print("I can split node!!!")
     def insert_into_parent(self, dst, dst_node, key, record_address, new_child):
         dst_m = self.get_node_m(node=dst_node)
         dst_keys, dst_pointers = self.get_all_keys_and_pointers_from_node(node=dst_node, m=dst_m)
@@ -397,7 +397,7 @@ class BTree:
                         keys=right_keys,
                         values=right_pointers,
                         parent_pointer=right_parent)
-        print("I can split root!!!")
+        # print("I can split root!!!")
 
     def compensation_possible(self, node, node_address):
         parent_ptr_offset = self.tree_interface.parent_pointer_offset
@@ -435,3 +435,13 @@ class BTree:
             return self.data_interface.read_entry(index=result)
         else:
             return None
+
+    def delete_record(self, key):
+        if not self.root:
+            return DOES_NOT_EXIST
+        else:
+            if not self.search(search_key=key):
+                return DOES_NOT_EXIST
+            else:
+                # here comes the logic
+                return OK

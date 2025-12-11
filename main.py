@@ -8,23 +8,52 @@ def test_mode_loop():
     btree = BTree()
     print("----------------------------")
     print("Test data mode")
-    file_exists = False
-    fname = None
-    while not file_exists:
-        fname = input("Test data file: ")
-        if os.path.isfile(fname):
-            file_exists = True
-        elif fname == "exit":
-            break
-        else:
-            print("File does not exist")
-    if fname == "exit":
+    print("Generate or load data?")
+    print("[1] Generate")
+    print("[2] Load")
+    options = [1, 2]
+
+    choice = input("Choice: ")
+    number = None
+    try:
+        number = int(choice)
+        if not number in options:
+            print("Wrong input, try again")
+    except:
+        print("Wrong input, try again")
+    if number == 1:
+        to_generate = None
+        while to_generate is None:
+            try:
+                to_generate = int(input("Number of records to generate: "))
+            except:
+                print("Wrong input, try again")
+                to_generate = None
+        tree_loader = TreeLoader(DEFAULT_TEST_DATA_FILENAME, btree)
+        tree_loader.write_random_data(to_generate=to_generate)
+        tree_loader.load()
+        btree.display()
+        return btree
+    elif number == 2:
+        file_exists = False
+        fname = None
+        while not file_exists:
+            fname = input("Test data file: ")
+            if os.path.isfile(fname):
+                file_exists = True
+            elif fname == "exit":
+                break
+            else:
+                print("File does not exist")
+        if fname == "exit":
+            return None
+        tree_loader = TreeLoader(fname, btree)
+        tree_loader.write_test_data()
+        tree_loader.load()
+        btree.display()
+        return btree
+    else:
         return None
-    tree_loader = TreeLoader(fname, btree)
-    tree_loader.write_test_data() # temp ----------------------------------------------------------
-    tree_loader.load()
-    btree.display()
-    return btree
 
 def interactive_mode_loop(btree):
     if not btree:
@@ -61,7 +90,7 @@ def interactive_mode_loop(btree):
             if result == ALREADY_EXISTS:
                 print("Record with given key already exists")
             else:
-                print("Record added")
+                print(f"Record with key {key} added")
         elif number == 2:
             print("read record")
             key = int(input("Key: "))
@@ -74,6 +103,12 @@ def interactive_mode_loop(btree):
             print("view sorted file")
         elif number == 4:
             print("Delete record")
+            key = int(input("Key: "))
+            result = btree.delete_record(key=key)
+            if result == DOES_NOT_EXIST:
+                print("Record with given key doesn't exist")
+            else:
+                print(f"Record with key {key} deleted")
         elif number == 5:
             print("Update record")
         else:

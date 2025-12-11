@@ -120,7 +120,7 @@ class BTreeInterface:
         if not (self.write_address <= index < self.write_address + self.page_size):
             self.write_cached_records()
             self.get_new_write_buffer(index)
-        print(type(value))
+        # print(type(value))
         to_write = bytearray(value.to_bytes(4, byteorder='little'))
         self.write_buffer[index - self.write_address:index - self.write_address + POINTER_SIZE] = to_write
         self.modified = True
