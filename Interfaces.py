@@ -11,8 +11,11 @@ class BTreeInterface:
         self.write_address = 0
         self.write_buffer = None
         self.order = order
+        # "memory" management
         self.node_count = 1
+        self.nodes_deleted = []
         self.modified = False
+
         # maximum page_size is determined for:
         # maximum 2d+1 pointers
         # maximum 2d key and data pointer pairs
@@ -71,8 +74,11 @@ class BTreeInterface:
             print("-NULL")
 
     def get_new_node_address(self):
-        self.node_count += 1
-        return (self.node_count-1)*self.page_size
+        if len(self.nodes_deleted) > 0:
+            return self.nodes_deleted.pop()
+        else:
+            self.node_count += 1
+            return (self.node_count-1)*self.page_size
 
     def get_new_read_buffer(self, index):
         with open(self.file, 'rb') as f:
