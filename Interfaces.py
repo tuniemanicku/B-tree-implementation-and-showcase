@@ -72,6 +72,9 @@ class BTreeInterface:
             for _ in range(depth):
                 print("\t", end="")
             print("-NULL")
+        for _ in range(depth):
+            print("\t", end="")
+        print(f"parent: {int.from_bytes(current_node[56:60], byteorder="little")}")
 
     def get_new_node_address(self):
         if len(self.nodes_deleted) > 0:

@@ -181,11 +181,16 @@ class BTree:
                 self.split_root(dst, dst_node, key, record_address, NULL_ADDRESS)
                 return OK
 
-    def compensate_left(self, dst, dst_node, sibling, sibling_node, record, record_address, parent, key):
+    def compensate_left(self, dst, dst_node, sibling, sibling_node, record, record_address, parent, key, dst_keys=None, dst_values=None):
         sibling_m = self.get_node_m(node=sibling_node)
         temp_keys, temp_pointers = self.get_all_keys_and_pointers_from_node(node=sibling_node, m=sibling_m)
         dst_m = self.get_node_m(node=dst_node)
-        keys, pointers = self.get_all_keys_and_pointers_from_node(node=dst_node, m=dst_m)
+        keys, pointers = None, None
+        if not dst_keys and not dst_values:
+            keys, pointers = self.get_all_keys_and_pointers_from_node(node=dst_node, m=dst_m)
+        else:
+            keys, pointers = dst_keys, dst_values
+            dst_m -= 1 # because we just deleted one if we are here
         for x in range(len(keys)):
             i = bisect.bisect_left(temp_keys, keys[x])
             temp_keys.insert(i, keys[x])
@@ -201,9 +206,10 @@ class BTree:
         temp_keys.insert(i, the_key)
         temp_pointers.insert(i, the_ptr)
         # new key
-        i = bisect.bisect_left(temp_keys, key)
-        temp_keys.insert(i, key)
-        temp_pointers.insert(i, record_address)
+        if key and record_address: # else it's after deletion
+            i = bisect.bisect_left(temp_keys, key)
+            temp_keys.insert(i, key)
+            temp_pointers.insert(i, record_address)
         #
         mid_index = len(temp_keys)//2
         l_keys = temp_keys[:mid_index]
@@ -237,11 +243,16 @@ class BTree:
                         )
         # print("I can do this left!!!")
 
-    def compensate_right(self, dst, dst_node, sibling, sibling_node, record, record_address, parent, key):
+    def compensate_right(self, dst, dst_node, sibling, sibling_node, record, record_address, parent, key, dst_keys=None, dst_values=None):
         sibling_m = self.get_node_m(node=sibling_node)
         temp_keys, temp_pointers = self.get_all_keys_and_pointers_from_node(node=sibling_node, m=sibling_m)
         dst_m = self.get_node_m(node=dst_node)
-        keys, pointers = self.get_all_keys_and_pointers_from_node(node=dst_node, m=dst_m)
+        keys, pointers = None, None
+        if not dst_keys and not dst_values:
+            keys, pointers = self.get_all_keys_and_pointers_from_node(node=dst_node, m=dst_m)
+        else:
+            keys, pointers = dst_keys, dst_values
+            dst_m -= 1  # because we just deleted one if we are here
         for x in range(len(keys)):
             i = bisect.bisect_left(temp_keys, keys[x])
             temp_keys.insert(i, keys[x])
@@ -258,9 +269,10 @@ class BTree:
         temp_keys.insert(i, the_key)
         temp_pointers.insert(i, the_ptr)
         # new key
-        i = bisect.bisect_left(temp_keys, key)
-        temp_keys.insert(i, key)
-        temp_pointers.insert(i, record_address)
+        if key and record_address: # else it's after deletion
+            i = bisect.bisect_left(temp_keys, key)
+            temp_keys.insert(i, key)
+            temp_pointers.insert(i, record_address)
         ###########################################
         mid_index = len(temp_keys) // 2
         r_keys = temp_keys[mid_index+1:]
@@ -401,9 +413,21 @@ class BTree:
                         keys=right_keys,
                         values=right_pointers,
                         parent_pointer=right_parent)
+        # update parent for all children of new left and right nodes
+        p_ptr_offset = self.tree_interface.parent_pointer_offset
+        for child in right_children:
+            if child != NULL_ADDRESS:
+                node = self.tree_interface.read_page(child)
+                node[p_ptr_offset:p_ptr_offset + POINTER_SIZE] = right_address.to_bytes(POINTER_SIZE, byteorder='little')
+                self.tree_interface.write_page(index=child, node=node)
+        for child in left_children:
+            if child != NULL_ADDRESS:
+                node = self.tree_interface.read_page(child)
+                node[p_ptr_offset:p_ptr_offset + POINTER_SIZE] = left_address.to_bytes(POINTER_SIZE, byteorder='little')
+                self.tree_interface.write_page(index=child, node=node)
         # print("I can split root!!!")
 
-    def compensation_possible(self, node, node_address):
+    def compensation_possible(self, node, node_address, compensation_type="add"):
         parent_ptr_offset = self.tree_interface.parent_pointer_offset
         parent_pointer = int.from_bytes(node[parent_ptr_offset:parent_ptr_offset + POINTER_SIZE],byteorder='little')
         if not parent_pointer:
@@ -422,13 +446,20 @@ class BTree:
                 right_sibling = children[i+1]
             if left_sibling:
                 left_node = self.tree_interface.read_page(index=left_sibling)
-                if self.get_node_m(node=left_node) < 2*self.order:
-                    return (0,left_sibling,left_node, parent_pointer)
+                if compensation_type == "add":
+                    if self.get_node_m(node=left_node) < 2*self.order:
+                        return (0,left_sibling,left_node, parent_pointer)
+                else: # type == "delete"
+                    if self.get_node_m(node=left_node) > self.order:
+                        return (0,left_sibling,left_node, parent_pointer)
             if right_sibling:
                 right_node = self.tree_interface.read_page(index=right_sibling)
-                if self.get_node_m(node=right_node) < 2*self.order:
-                    return (1, right_sibling, right_node, parent_pointer)
-            # return the sibling to compensate (address, whatever needed...)
+                if compensation_type == "add":
+                    if self.get_node_m(node=right_node) < 2*self.order:
+                        return (1, right_sibling, right_node, parent_pointer)
+                else: # type == "delete"
+                    if self.get_node_m(node=right_node) > self.order:
+                        return (1, right_sibling, right_node, parent_pointer)
             return None
 
     def read_record(self, key):
@@ -531,8 +562,8 @@ class BTree:
             self.data_interface.write_entry(index=data_to_delete, record=DELETE_RECORD)
         dst_m -= 1
         if dst_m < self.order:
-            pass
             # handle underflow
+            self.handle_underflow(dst=dst, dst_node=dst_node, dst_keys=dst_keys, dst_values=dst_pointers)
         else:
             self.write_node(node_address=dst,
                             child_ptrs=dst_children,
@@ -540,8 +571,17 @@ class BTree:
                             values=dst_pointers,
                             parent_pointer=dst_parent)
 
-    def handle_underflow(self):
+    def handle_underflow(self, dst, dst_node, dst_keys, dst_values):
         # try compensation
-        pass
-        # else -> merge
-        pass
+        idd, sibling, sibling_node, parent = None, None, None, None
+        output = self.compensation_possible(node=dst_node, node_address=dst, compensation_type="delete")
+        if output:
+            idd, sibling, sibling_node, parent = output
+        if idd == 0:
+            self.compensate_left(dst, dst_node, sibling, sibling_node, record=None, record_address=None, parent=parent, key=None,
+                                 dst_keys=dst_keys, dst_values=dst_values)
+        elif idd == 1:
+            self.compensate_right(dst, dst_node, sibling, sibling_node, record=None, record_address=None, parent=parent, key=None,
+                                  dst_keys=dst_keys, dst_values=dst_values)
+        else:
+            pass # merge
