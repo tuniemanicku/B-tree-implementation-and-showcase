@@ -16,6 +16,9 @@ class BTreeInterface:
         self.nodes_deleted = []
         self.modified = False
 
+        # counter of disk operations
+        self.access_counter = 0
+
         # maximum page_size is determined for:
         # maximum 2d+1 pointers
         # maximum 2d key and data pointer pairs
@@ -26,6 +29,12 @@ class BTreeInterface:
         self.record_count_offset = (2*order+1)*POINTER_SIZE + (2*order)*(KEY_SIZE + POINTER_SIZE)
         self.parent_pointer_offset = (2*order+1)*POINTER_SIZE + (2*order)*(KEY_SIZE + POINTER_SIZE) + RECORD_COUNT_SIZE
         print("Node size:",self.page_size)
+
+    def reset_read_writes(self):
+        self.access_counter = 0
+
+    def get_access_counter(self):
+        return self.access_counter
 
     def get_node_m(self, node):
         m_offset = self.record_count_offset
@@ -87,6 +96,7 @@ class BTreeInterface:
         self.nodes_deleted.append(address)
 
     def get_new_read_buffer(self, index):
+        self.access_counter += 1
         with open(self.file, 'rb') as f:
             self.base_address = index - (index % self.page_size)
             f.seek(self.base_address)
@@ -104,7 +114,7 @@ class BTreeInterface:
         return return_value if return_value else None
 
     def read_page(self, index):
-        self.write_cached_records()
+        # self.write_cached_records()
         self.get_new_read_buffer(index) #TODO ---------------------------------------sdsdffsdf
         # if not self.read_buffer or (self.write_address == self.base_address and self.modified):
         #     self.get_new_read_buffer(index)
@@ -121,6 +131,7 @@ class BTreeInterface:
             self.write_buffer = bytearray(self.page_size)
 
     def write_cached_records(self):
+        self.access_counter += 1
         with open(self.file, 'r+b') as f:
             f.seek(self.write_address)
             f.write(self.write_buffer)
@@ -168,6 +179,13 @@ class DataInterface:
 
     def __del__(self):
         self.flush_write_buffer()
+
+    def reset_access_counter(self):
+        self.read_count = 0
+        self.write_count = 0
+
+    def get_access_counter(self):
+        return self.read_count + self.write_count
 
     # record: (key, voltage, current)
     def write_entry(self, index, record):

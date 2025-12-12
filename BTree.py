@@ -1,5 +1,3 @@
-from sympy import roots
-
 from Interfaces import *
 from utils import *
 # from test import *
@@ -23,6 +21,12 @@ class BTree:
         self.checked_siblings = None
     # record: (key, voltage, current)
 
+    def get_access_counter(self):
+        return self.tree_interface.get_access_counter()
+
+    def get_data_access_counter(self):
+        return self.data_interface.get_access_counter()
+
     def display(self):
         print("/////////////B-TREE DISPLAY////////////////")
         if self.root:
@@ -34,6 +38,8 @@ class BTree:
     def display_data(self, node_address=NULL_ADDRESS):
         if node_address == NULL_ADDRESS:
             node_address = self.root
+            self.tree_interface.reset_read_writes()
+            self.data_interface.reset_access_counter()
             print("----Display the file according to key----")
         node = self.tree_interface.read_page(node_address)
         node_m = self.get_node_m(node)
@@ -155,6 +161,8 @@ class BTree:
         return None
 
     def add_record(self, key: int, record: tuple):
+        self.tree_interface.reset_read_writes()
+        self.data_interface.reset_access_counter()
         if not self.root:
             data_address = self.data_interface.write_entry(index=None, record=(key, record[0], record[1]))
             self.root = self.tree_interface.get_new_node_address()
@@ -496,6 +504,8 @@ class BTree:
             return None
 
     def read_record(self, key):
+        self.tree_interface.reset_read_writes()
+        self.data_interface.reset_access_counter()
         if not self.root:
             return None
         result = self.search(key)
@@ -505,6 +515,8 @@ class BTree:
             return None
 
     def delete_record(self, key):
+        self.tree_interface.reset_read_writes()
+        self.data_interface.reset_access_counter()
         if not self.root:
             return DOES_NOT_EXIST
         else:
