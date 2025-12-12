@@ -83,6 +83,9 @@ class BTreeInterface:
             self.node_count += 1
             return (self.node_count-1)*self.page_size
 
+    def free_node_address(self, address):
+        self.nodes_deleted.append(address)
+
     def get_new_read_buffer(self, index):
         with open(self.file, 'rb') as f:
             self.base_address = index - (index % self.page_size)
