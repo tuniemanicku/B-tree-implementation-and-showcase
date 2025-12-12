@@ -1,3 +1,5 @@
+from sympy import roots
+
 from Interfaces import *
 from utils import *
 # from test import *
@@ -13,6 +15,8 @@ class BTree:
 
         # B-tree root node address (empty at the start)
         self.root = None
+        self.last_search = NULL_ADDRESS
+        self.last_search_address = NULL_ADDRESS
         self.path_buffer = []
         self.node_buffer = {}
         self.existing_nodes = []
@@ -26,6 +30,25 @@ class BTree:
         else:
             print("NULL")
         print("///////////////////////////////////////////")
+
+    def display_data(self, node_address=NULL_ADDRESS):
+        if node_address == NULL_ADDRESS:
+            node_address = self.root
+            print("----Display the file according to key----")
+        node = self.tree_interface.read_page(node_address)
+        node_m = self.get_node_m(node)
+        children = self.get_all_child_pointers_from_node(node, node_m)
+        keys, pointers = self.get_all_keys_and_pointers_from_node(node, node_m)
+        end = 0
+        for i in range(node_m):
+            if children[i] != NULL_ADDRESS:
+                self.display_data(node_address=children[i])
+            record = self.data_interface.read_entry(pointers[i])
+            print(f"key: {keys[i]}, record: {record}")
+            end = i
+        end += 1
+        if children[end] != NULL_ADDRESS:
+            self.display_data(node_address=children[end])
 
     def combine_node(self, node_address, child_ptrs, keys, values, parent_pointer):
         page_size = self.tree_interface.page_size
@@ -117,6 +140,8 @@ class BTree:
                 key = int.from_bytes(node[offset+i:offset+i+KEY_SIZE], byteorder='little')
                 if search_key == key:
                     # pointer do danych
+                    self.last_search = search_key
+                    self.last_search_address = current
                     return int.from_bytes(node[offset+i+KEY_SIZE:offset+i+KEY_SIZE+POINTER_SIZE], byteorder='little')
                 if search_key < key or key == 0:
                     # warunek stopu w nodzie
@@ -125,6 +150,8 @@ class BTree:
                 end = i
             if search_key > key:
                 current = int.from_bytes(node[(end//2)+POINTER_SIZE:(end//2)+POINTER_SIZE*2], byteorder='little')
+        self.last_search = NULL_ADDRESS
+        self.last_search_address = NULL_ADDRESS
         return None
 
     def add_record(self, key: int, record: tuple):

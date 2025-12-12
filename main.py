@@ -101,6 +101,7 @@ def interactive_mode_loop(btree):
                 print("Record not found")
         elif number == 3:
             print("view sorted file")
+            btree.display_data()
         elif number == 4:
             print("Delete record")
             key = int(input("Key: "))
