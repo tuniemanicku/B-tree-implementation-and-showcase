@@ -5,8 +5,11 @@ from utils import *
 from test import TreeLoader, hexdump_4byte
 
 def print_accesses(btree):
-    print(f"Tree disk accesses: {btree.get_access_counter()}")
-    print(f"Data disk accesses: {btree.get_data_access_counter()}")
+    t_reads, t_writes = btree.get_access_counter()
+    d_reads, d_writes = btree.get_data_access_counter()
+    print("_________________________________________")
+    print(f"Tree disk reads: {t_reads}, writes: {t_writes}")
+    print(f"Data file disk reads: {d_reads}, writes: {d_writes}")
 
 def test_mode_loop():
     btree = BTree()
@@ -52,7 +55,7 @@ def test_mode_loop():
         if fname == "exit":
             return None
         tree_loader = TreeLoader(fname, btree)
-        # tree_loader.write_test_data()
+        tree_loader.write_test_data()
         tree_loader.load()
         btree.display()
         return btree

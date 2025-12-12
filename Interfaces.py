@@ -17,7 +17,8 @@ class BTreeInterface:
         self.modified = False
 
         # counter of disk operations
-        self.access_counter = 0
+        self.write_counter = 0
+        self.read_counter = 0
 
         # maximum page_size is determined for:
         # maximum 2d+1 pointers
@@ -28,13 +29,15 @@ class BTreeInterface:
         self.keys_offset = (2*order+1)*POINTER_SIZE
         self.record_count_offset = (2*order+1)*POINTER_SIZE + (2*order)*(KEY_SIZE + POINTER_SIZE)
         self.parent_pointer_offset = (2*order+1)*POINTER_SIZE + (2*order)*(KEY_SIZE + POINTER_SIZE) + RECORD_COUNT_SIZE
+        self.prev_write = bytearray(self.page_size)
         print("Node size:",self.page_size)
 
     def reset_read_writes(self):
-        self.access_counter = 0
+        self.read_counter = 0
+        self.write_counter = 0
 
     def get_access_counter(self):
-        return self.access_counter
+        return self.read_counter, self.write_counter
 
     def get_node_m(self, node):
         m_offset = self.record_count_offset
@@ -96,7 +99,7 @@ class BTreeInterface:
         self.nodes_deleted.append(address)
 
     def get_new_read_buffer(self, index):
-        self.access_counter += 1
+        self.read_counter += 1
         with open(self.file, 'rb') as f:
             self.base_address = index - (index % self.page_size)
             f.seek(self.base_address)
@@ -131,7 +134,7 @@ class BTreeInterface:
             self.write_buffer = bytearray(self.page_size)
 
     def write_cached_records(self):
-        self.access_counter += 1
+        self.write_counter += 1
         with open(self.file, 'r+b') as f:
             f.seek(self.write_address)
             f.write(self.write_buffer)
@@ -149,11 +152,16 @@ class BTreeInterface:
         self.modified = True
 
     def write_page(self, index, node):
+        prev_write_buffer = bytearray(self.page_size)
         if not (self.write_address <= index < self.write_address + self.page_size):
-            self.write_cached_records()
+            prev_write_buffer = self.write_buffer
+            if not self.prev_write == self.write_buffer:
+                self.write_cached_records()
             self.get_new_write_buffer(index)
         self.write_buffer = node
-        self.write_cached_records()
+        if not prev_write_buffer == self.write_buffer:
+            self.write_cached_records()
+            self.prev_write = node
 
 import os
 
@@ -185,7 +193,7 @@ class DataInterface:
         self.write_count = 0
 
     def get_access_counter(self):
-        return self.read_count + self.write_count
+        return self.read_count, self.write_count
 
     # record: (key, voltage, current)
     def write_entry(self, index, record):

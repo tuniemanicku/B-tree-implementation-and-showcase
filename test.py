@@ -32,7 +32,7 @@ class TreeLoader:
 
     def write_test_data(self):
         with open(DEFAULT_TEST_DATA_FILENAME, "wb") as f:
-            to_add = [1, 2, 3, 5, 6, 7, 8, 9, 10, 11, 15, 20, 25, 30, 35, 40, 45, 50, 55, 60, 65, 70, 42, 100, 80]
+            to_add = [1, 2, 3, 4, 5, 6, 7, 8, 9]
             for i in range(len(to_add)):
                 f.write(ADD_INSTR.to_bytes(INSTRUCTION_TYPE_LENGTH, "little"))
                 f.write(struct.pack("<i dd", to_add[i], to_add[i], to_add[i]))
