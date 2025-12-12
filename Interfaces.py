@@ -19,7 +19,7 @@ class BTreeInterface:
         # counter of disk operations
         self.write_counter = 0
         self.read_counter = 0
-
+        self.key_count = 0
         # maximum page_size is determined for:
         # maximum 2d+1 pointers
         # maximum 2d key and data pointer pairs
@@ -69,6 +69,7 @@ class BTreeInterface:
                     print("\t", end="")
                 print("-NULL")
             key = int.from_bytes(current_node[self.keys_offset+(i*2):self.keys_offset+(i*2)+KEY_SIZE], byteorder="little")
+            self.key_count += 1
             for _ in range(depth):
                 print("\t", end="")
             print("key:", key)
@@ -197,6 +198,9 @@ class DataInterface:
 
     # record: (key, voltage, current)
     def write_entry(self, index, record):
+        if record == DELETE_RECORD:
+            #TODO# get the page here and write on it
+            pass
         if not index:
             index = self.autoindexing
             self.autoindexing += 1

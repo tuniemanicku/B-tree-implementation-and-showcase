@@ -13,6 +13,7 @@ class TreeLoader:
             while instruction_type:
                 if instruction_type == ADD_INSTR:
                     key, u, i = struct.unpack("<i dd", f.read(PAIR_SIZE))
+                    print(key)
                     self.btree.add_record(key=key, record=(u, i))
                 elif instruction_type == DELETE_INSTR:
                     key = struct.unpack("<i", f.read(KEY_SIZE))
@@ -33,7 +34,8 @@ class TreeLoader:
 
     def write_test_data(self):
         with open(DEFAULT_TEST_DATA_FILENAME, "wb") as f:
-            to_add = [86, 134, 97, 266, 300, 10, 191, 209, 237, 24, 1, 6, 166, 226, 284, 166, 244, 247, 65, 259, 212, 46, 53, 71, 155, 290, 300, 83, 130, 146, 88, 78, 278, 292, 223, 252, 219, 235, 56, 6, 44, 278, 101, 255, 14, 46, 209, 213, 131]
+            to_add = [i for i in range(1,50)]
+            # to_add = [86, 134, 97, 266, 300, 10, 191, 209, 237, 24, 1, 6, 166, 226, 284, 166, 244, 247, 65, 259, 212, 46, 53, 71, 155, 290, 300, 83, 130, 146, 88, 78, 278, 292, 223, 252, 219, 235, 56, 6, 44, 278, 101, 255, 14, 46, 209, 213, 131]
             print(len(to_add))
             for i in range(len(to_add)):
                 f.write(ADD_INSTR.to_bytes(INSTRUCTION_TYPE_LENGTH, "little"))

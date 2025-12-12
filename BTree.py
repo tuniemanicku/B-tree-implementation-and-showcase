@@ -198,7 +198,7 @@ class BTree:
             else:
                 return self.handle_overflow(dst_node,dst, record, key, record_address=data_address)
 
-    def handle_overflow(self, dst_node, dst, record, key, record_address, new_child=None):
+    def handle_overflow(self, dst_node, dst, record, key, record_address, new_child=NULL_ADDRESS):
         # try compensation
         idd, sibling, sibling_node, parent = None, None, None, None
         output = self.compensation_possible(node=dst_node, node_address=dst)
@@ -212,10 +212,10 @@ class BTree:
             return OK
         else:
             if self.get_parent_pointer_from_node(dst_node):
-                self.split_node(dst, dst_node, key, record_address, NULL_ADDRESS)
+                self.split_node(dst, dst_node, key, record_address, new_child)
                 return OK
             else:
-                self.split_root(dst, dst_node, key, record_address, NULL_ADDRESS)
+                self.split_root(dst, dst_node, key, record_address, new_child)
                 return OK
 
     def compensate_left(self, dst, dst_node, sibling, sibling_node, record, record_address, parent, key,
@@ -223,12 +223,14 @@ class BTree:
         sibling_m = self.get_node_m(node=sibling_node)
         temp_keys, temp_pointers = self.get_all_keys_and_pointers_from_node(node=sibling_node, m=sibling_m)
         dst_m = self.get_node_m(node=dst_node)
-        keys, pointers = None, None
-        if not dst_keys and not dst_values:
-            keys, pointers = self.get_all_keys_and_pointers_from_node(node=dst_node, m=dst_m)
-        else:
-            keys, pointers = dst_keys, dst_values
-            dst_m -= 1 # because we just deleted one if we are here
+        keys, pointers = self.get_all_keys_and_pointers_from_node(node=dst_node, m=dst_m)
+
+        #get the children
+        dst_children = self.get_all_child_pointers_from_node(node=dst_node, m=dst_m)
+        sibling_children = self.get_all_child_pointers_from_node(node=sibling_node, m=sibling_m)
+        temp_children = sibling_children
+        temp_children += dst_children
+        # print(temp_children)
         for x in range(len(keys)):
             i = bisect.bisect_left(temp_keys, keys[x])
             temp_keys.insert(i, keys[x])
@@ -244,28 +246,33 @@ class BTree:
         temp_keys.insert(i, the_key)
         temp_pointers.insert(i, the_ptr)
         # new key
-        if key and record_address: # else it's after deletion
-            i = bisect.bisect_left(temp_keys, key)
-            temp_keys.insert(i, key)
-            temp_pointers.insert(i, record_address)
-        #
+        i = bisect.bisect_left(temp_keys, key)
+        temp_keys.insert(i, key)
+        temp_pointers.insert(i, record_address)
+        #new children
+        if new_child:
+            temp_children.insert(i+1, new_child)
+        # print(temp_children)
         mid_index = len(temp_keys)//2
         l_keys = temp_keys[:mid_index]
+        l_children = temp_children[:mid_index+1]
         l_ptrs = temp_pointers[:mid_index]
         parent_key = temp_keys[mid_index]
         parent_ptr = temp_pointers[mid_index]
         dst_keys = temp_keys[mid_index+1:]
+        d_children = temp_children[mid_index+1:]
         dst_ptrs = temp_pointers[mid_index+1:]
+
         # OF node
         self.write_node(node_address=dst,
-                        child_ptrs=self.get_all_child_pointers_from_node(node=dst_node, m=dst_m), #update TODO -------------
+                        child_ptrs=d_children,
                         keys=dst_keys,
                         values=dst_ptrs,
                         parent_pointer=parent
                         )
         # left node
         self.write_node(node_address=sibling,
-                        child_ptrs=self.get_all_child_pointers_from_node(node=sibling_node, m=sibling_m), # TODO -------------
+                        child_ptrs=l_children,
                         keys=l_keys,
                         values=l_ptrs,
                         parent_pointer=parent
@@ -285,15 +292,14 @@ class BTree:
                          dst_keys=None, dst_values=None, new_child=None):
         sibling_m = self.get_node_m(node=sibling_node)
         temp_keys, temp_pointers = self.get_all_keys_and_pointers_from_node(node=sibling_node, m=sibling_m)
-        #temp_children = self.get_all_child_pointers_from_node(node=sibling_node, m=sibling_m)
         dst_m = self.get_node_m(node=dst_node)
-        keys, pointers = None, None
-        #dst_children = self.get_all_child_pointers_from_node(node=dst_node, m=dst_m)
-        if not dst_keys and not dst_values:
-            keys, pointers = self.get_all_keys_and_pointers_from_node(node=dst_node, m=dst_m)
-        else:
-            keys, pointers = dst_keys, dst_values
-            dst_m -= 1  # because we just deleted one if we are here
+        keys, pointers = self.get_all_keys_and_pointers_from_node(node=dst_node, m=dst_m)
+
+        #new children
+        temp_children = self.get_all_child_pointers_from_node(node=dst_node, m=dst_m)
+        sibling_children = self.get_all_child_pointers_from_node(node=sibling_node, m=sibling_m)
+        temp_children += sibling_children
+
         for x in range(len(keys)):
             i = bisect.bisect_left(temp_keys, keys[x])
             temp_keys.insert(i, keys[x])
@@ -310,30 +316,35 @@ class BTree:
         temp_keys.insert(i, the_key)
         temp_pointers.insert(i, the_ptr)
         # new key
-        if key and record_address: # else it's after deletion
-            i = bisect.bisect_left(temp_keys, key)
-            temp_keys.insert(i, key)
-            temp_pointers.insert(i, record_address)
+        i = bisect.bisect_left(temp_keys, key)
+        temp_keys.insert(i, key)
+        temp_pointers.insert(i, record_address)
+
+        #child
+        if new_child:
+            temp_children.insert(i+1, new_child)
         ###########################################
         mid_index = len(temp_keys) // 2
         r_keys = temp_keys[mid_index+1:]
         r_ptrs = temp_pointers[mid_index+1:]
+        r_children = temp_children[mid_index+1:]
+
         parent_key = temp_keys[mid_index]
         parent_ptr = temp_pointers[mid_index]
+
         dst_keys = temp_keys[:mid_index]
         dst_ptrs = temp_pointers[:mid_index]
+        d_children = temp_children[:mid_index+1]
         # OF node
         self.write_node(node_address=dst,
-                        child_ptrs=self.get_all_child_pointers_from_node(node=dst_node, m=dst_m),
-                        # update TODO -------------
+                        child_ptrs=d_children,
                         keys=dst_keys,
                         values=dst_ptrs,
                         parent_pointer=parent
                         )
         # right node
         self.write_node(node_address=sibling,
-                        child_ptrs=self.get_all_child_pointers_from_node(node=sibling_node, m=sibling_m),
-                        # TODO -------------
+                        child_ptrs=r_children,
                         keys=r_keys,
                         values=r_ptrs,
                         parent_pointer=parent
@@ -357,23 +368,25 @@ class BTree:
         i = bisect.bisect_left(dst_keys, key)
         dst_keys.insert(i, key)
         dst_pointers.insert(i, record_address)
+
         middle_key = len(dst_keys)//2
 
         # adjust new pointer
-        dst_children.insert(i + 1, new_child)
-        halfway = len(dst_children) // 2
+        if new_child:
+            dst_children.insert(i + 1, new_child)
+            print("blblbl",dst_children)
 
         parent = self.get_parent_pointer_from_node(dst_node)
         # new node becomes right node
         new_right = self.tree_interface.get_new_node_address()
         self.write_node(node_address=new_right,
-                        child_ptrs=dst_children[halfway:], ######################
+                        child_ptrs=dst_children[middle_key+1:], ######################
                         keys=dst_keys[middle_key+1:],
                         values=dst_pointers[middle_key+1:],
                         parent_pointer=parent)
         # old node is left node
         self.write_node(node_address=dst,
-                        child_ptrs=dst_children[:halfway], ######################
+                        child_ptrs=dst_children[:middle_key+1], ######################
                         keys=dst_keys[:middle_key],
                         values=dst_pointers[:middle_key],
                         parent_pointer=parent)
