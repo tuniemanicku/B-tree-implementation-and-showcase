@@ -198,17 +198,17 @@ class BTree:
             else:
                 return self.handle_overflow(dst_node,dst, record, key, record_address=data_address)
 
-    def handle_overflow(self, dst_node, dst, record, key, record_address):
+    def handle_overflow(self, dst_node, dst, record, key, record_address, new_child=None):
         # try compensation
         idd, sibling, sibling_node, parent = None, None, None, None
         output = self.compensation_possible(node=dst_node, node_address=dst)
         if output:
             idd, sibling, sibling_node, parent = output
         if idd == 0:
-            self.compensate_left(dst, dst_node, sibling, sibling_node, record, record_address, parent, key)
+            self.compensate_left(dst, dst_node, sibling, sibling_node, record, record_address, parent, key, new_child=new_child)
             return OK
         elif idd == 1:
-            self.compensate_right(dst, dst_node, sibling, sibling_node, record, record_address, parent, key)
+            self.compensate_right(dst, dst_node, sibling, sibling_node, record, record_address, parent, key, new_child=new_child)
             return OK
         else:
             if self.get_parent_pointer_from_node(dst_node):
@@ -218,7 +218,8 @@ class BTree:
                 self.split_root(dst, dst_node, key, record_address, NULL_ADDRESS)
                 return OK
 
-    def compensate_left(self, dst, dst_node, sibling, sibling_node, record, record_address, parent, key, dst_keys=None, dst_values=None):
+    def compensate_left(self, dst, dst_node, sibling, sibling_node, record, record_address, parent, key,
+                        dst_keys=None, dst_values=None, new_child=None):
         sibling_m = self.get_node_m(node=sibling_node)
         temp_keys, temp_pointers = self.get_all_keys_and_pointers_from_node(node=sibling_node, m=sibling_m)
         dst_m = self.get_node_m(node=dst_node)
@@ -280,11 +281,14 @@ class BTree:
                         )
         # print("I can do this left!!!")
 
-    def compensate_right(self, dst, dst_node, sibling, sibling_node, record, record_address, parent, key, dst_keys=None, dst_values=None):
+    def compensate_right(self, dst, dst_node, sibling, sibling_node, record, record_address, parent, key,
+                         dst_keys=None, dst_values=None, new_child=None):
         sibling_m = self.get_node_m(node=sibling_node)
         temp_keys, temp_pointers = self.get_all_keys_and_pointers_from_node(node=sibling_node, m=sibling_m)
+        #temp_children = self.get_all_child_pointers_from_node(node=sibling_node, m=sibling_m)
         dst_m = self.get_node_m(node=dst_node)
         keys, pointers = None, None
+        #dst_children = self.get_all_child_pointers_from_node(node=dst_node, m=dst_m)
         if not dst_keys and not dst_values:
             keys, pointers = self.get_all_keys_and_pointers_from_node(node=dst_node, m=dst_m)
         else:
@@ -381,9 +385,9 @@ class BTree:
         ptr_to_go_up = dst_pointers[middle_key]
         if not parent_parent and parent_m == 2*self.order:
             self.split_root(parent, parent_node, key_to_go_up, ptr_to_go_up, new_right)
-        elif parent_m == 2*self.order:
-            self.split_node(parent, parent_node, key_to_go_up, ptr_to_go_up, new_right)
-            # self.handle_overflow(parent_node, parent, None, key_to_go_up, ptr_to_go_up, new_child)
+        elif parent_m >= 2*self.order:
+            # self.split_node(parent, parent_node, key_to_go_up, ptr_to_go_up, new_right)
+            self.handle_overflow(parent_node, parent, None, key_to_go_up, ptr_to_go_up, new_child=new_right)#TODO----------
         else:
             self.insert_into_parent(parent, parent_node, key_to_go_up, ptr_to_go_up, new_right)
         # print("I can split node!!!")
