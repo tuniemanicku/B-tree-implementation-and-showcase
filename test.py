@@ -1,4 +1,3 @@
-from BTree import BTree
 from Interfaces import *
 import random
 
@@ -13,29 +12,44 @@ class TreeLoader:
             while instruction_type:
                 if instruction_type == ADD_INSTR:
                     key, u, i = struct.unpack("<i dd", f.read(PAIR_SIZE))
+                    print(key)
                     self.btree.add_record(key=key, record=(u, i))
                 elif instruction_type == DELETE_INSTR:
-                    print("not yet implemented")
+                    key = struct.unpack("<i", f.read(KEY_SIZE))
+                    self.btree.delete_record(key=key[0])
                 elif instruction_type == UPDATE_INSTR:
                     print("not yet implemented")
 
                 instruction_type = int.from_bytes(f.read(INSTRUCTION_TYPE_LENGTH), byteorder="little")
 
-    def write(self):
+    def write_random_data(self, to_generate):
         with open(DEFAULT_TEST_DATA_FILENAME, "wb") as f:
-            for i in range(RECORDS_TO_GENERATE):
+            for i in range(to_generate):
                 f.write(ADD_INSTR.to_bytes(INSTRUCTION_TYPE_LENGTH, "little"))
-                rand_key = random.randint(1,15)
+                rand_key = random.randint(1,KEY_MAX_VALUE)
                 rand_u = random.random()*20
                 rand_i = random.random()
                 f.write(struct.pack("<i dd", rand_key, rand_u, rand_i))
 
     def write_test_data(self):
         with open(DEFAULT_TEST_DATA_FILENAME, "wb") as f:
-            to_add = [1, 2, 3, 5, 6, 7, 8, 10, 9, 11, 12, 14, 13, 4, 20, 30, 40, 50, 35, 16, 15]
+            to_add = [i for i in range(1,26)]
+            # to_add = [86, 134, 97, 266, 300, 10, 191, 209, 237, 24, 1, 6, 166, 226, 284, 166, 244, 247, 65, 259, 212, 46, 53, 71, 155, 290, 300, 83, 130, 146, 88, 78, 278, 292, 223, 252, 219, 235, 56, 6, 44, 278, 101, 255, 14, 46, 209, 213, 131]
+            # to_add = [
+            #     16, 144, 230, 278, 239, 58, 160, 25, 78, 20,
+            #     194, 295, 288, 226, 275, 40, 51, 116, 158, 157,
+            #     149, 173, 200, 82, 262, 108, 224, 91, 46, 211,
+            #     13, 223, 134, 206
+            # ]
+            print(len(to_add))
             for i in range(len(to_add)):
                 f.write(ADD_INSTR.to_bytes(INSTRUCTION_TYPE_LENGTH, "little"))
                 f.write(struct.pack("<i dd", to_add[i], to_add[i], to_add[i]))
+            to_delete = []
+            # to_delete = [116, 134, 25, 46, 20]
+            for i in range(len(to_delete)):
+                f.write(DELETE_INSTR.to_bytes(INSTRUCTION_TYPE_LENGTH, "little"))
+                f.write(struct.pack("<i", to_delete[i]))
 
 #tl = TreeLoader(filename=DEFAULT_TEST_DATA_FILENAME, btree=BTree())
 #tl.write_test_data()
