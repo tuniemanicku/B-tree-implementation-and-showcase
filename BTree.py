@@ -1,4 +1,5 @@
 from Interfaces import *
+from test import display_data_file
 from utils import *
 # from test import *
 import bisect
@@ -44,6 +45,7 @@ class BTree:
         node_m = self.get_node_m(node)
         children = self.get_all_child_pointers_from_node(node, node_m)
         keys, pointers = self.get_all_keys_and_pointers_from_node(node, node_m)
+        parent = self.get_parent_pointer_from_node(node)
         end = 0
         for i in range(node_m):
             if children[i] != NULL_ADDRESS:
@@ -196,7 +198,9 @@ class BTree:
                                 parent_pointer=self.get_parent_pointer_from_node(dst_node))
                 return OK
             else:
-                return self.handle_overflow(dst_node,dst, record, key, record_address=data_address)
+                result = self.handle_overflow(dst_node,dst, record, key, record_address=data_address)
+                self.update_parent_pointers()
+                return result
 
     def handle_overflow(self, dst_node, dst, record, key, record_address, new_child=NULL_ADDRESS):
         # try compensation
@@ -378,7 +382,7 @@ class BTree:
         # adjust new pointer and parent
         if new_child:
             dst_children.insert(i + 1, new_child)
-            print("blblbl",dst_children)
+            # print("blblbl",dst_children)
             for child in dst_children[middle_key+1:]:
                 child_node = self.tree_interface.read_page(child)
                 p_ptr_offset = self.tree_interface.parent_pointer_offset
@@ -425,6 +429,26 @@ class BTree:
                         values=dst_pointers,
                         parent_pointer=parent)
 
+    def update_parent_pointers(self, node_address=NULL_ADDRESS):
+        temp = self.tree_interface.write_counter
+        temp2 = self.tree_interface.read_counter
+        if node_address == NULL_ADDRESS:
+            node_address = self.root
+        node = self.tree_interface.read_page(node_address)
+        node_m = self.get_node_m(node=node)
+        children = self.get_all_child_pointers_from_node(node=node, m=node_m)
+
+        p_ptr_offset = self.tree_interface.parent_pointer_offset
+        for child in children:
+            if child != NULL_ADDRESS:
+                child_node = self.tree_interface.read_page(child)
+                child_node[p_ptr_offset:p_ptr_offset+POINTER_SIZE] = node_address.to_bytes(POINTER_SIZE, 'little')
+                self.tree_interface.write_page(child, child_node)
+                self.update_parent_pointers(node_address=child)
+        if node_address == self.root:
+            # without parent update cost
+            self.tree_interface.read_counter = temp2
+            self.tree_interface.write_counter = temp
     def split_root(self, dst, dst_node, key, record_address, new_child):
         dst_m = self.get_node_m(node=dst_node)
         dst_keys, dst_pointers = self.get_all_keys_and_pointers_from_node(node=dst_node, m=dst_m)
@@ -586,6 +610,7 @@ class BTree:
                 if len(keys) < self.order:
                     l_node = self.tree_interface.read_page(index=leaf)
                     self.handle_underflow(leaf, l_node, parent)
+                self.update_parent_pointers()
                 return OK
 
     def find_predecessor(self, key_offset, node, node_address):
@@ -828,3 +853,42 @@ class BTree:
             return DOES_NOT_EXIST
         else:
             return self.add_record(key=key, record=record)
+
+    def reorganize_data(self, node_address=NULL_ADDRESS, temp_data_interface=None):
+        if node_address == NULL_ADDRESS:
+            display_data_file(DEFAULT_DATA_FILENAME, lines=self.data_interface.autoindexing)
+            temp_data_interface = DataInterface(filename=DEFAULT_REORGANIZE_FILENAME)
+            node_address = self.root
+            self.tree_interface.reset_read_writes()
+            self.data_interface.reset_access_counter()
+            print("----Reorganize the file----")
+        node = self.tree_interface.read_page(node_address)
+        node_m = self.get_node_m(node)
+        children = self.get_all_child_pointers_from_node(node, node_m)
+        keys, pointers = self.get_all_keys_and_pointers_from_node(node, node_m)
+        parent = self.get_parent_pointer_from_node(node)
+        end = 0
+        new_pointers = []
+        for i in range(node_m):
+            if children[i] != NULL_ADDRESS:
+                self.reorganize_data(node_address=children[i], temp_data_interface=temp_data_interface)
+            record = self.data_interface.read_entry(pointers[i])
+            # print(f"key: {keys[i]}, record: {record}")
+            new_data_pointer = temp_data_interface.write_entry(index=None, record=(keys[i], record[0], record[1]))
+            new_pointers.append(new_data_pointer)
+            end = i
+        # print(keys, new_pointers)
+        self.write_node(node_address=node_address,
+                        child_ptrs=children,
+                        keys=keys,
+                        values=new_pointers,
+                        parent_pointer=parent)
+        end += 1
+        if children[end] != NULL_ADDRESS:
+            self.reorganize_data(node_address=children[end], temp_data_interface=temp_data_interface)
+
+        # write the buffer file to main DATA_FILE after reorganization
+        if node_address == self.root:
+            temp_data_interface.flush_write_buffer()
+            display_data_file(filename=DEFAULT_REORGANIZE_FILENAME, lines=self.data_interface.autoindexing)
+            self.data_interface.copy_from_data_interface(temp_data_interface)

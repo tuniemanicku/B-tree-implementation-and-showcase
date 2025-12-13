@@ -69,10 +69,11 @@ class BTreeInterface:
                     print("\t", end="")
                 print("-NULL")
             key = int.from_bytes(current_node[self.keys_offset+(i*2):self.keys_offset+(i*2)+KEY_SIZE], byteorder="little")
+            dp = int.from_bytes(current_node[self.keys_offset+(i*2)+KEY_SIZE:self.keys_offset+(i*2)+KEY_SIZE+POINTER_SIZE], byteorder="little")
             self.key_count += 1
             for _ in range(depth):
                 print("\t", end="")
-            print("key:", key)
+            print("key:", key, "dp:", dp)
             end = i
         end += POINTER_SIZE
         child_address = int.from_bytes(current_node[end:end + POINTER_SIZE], byteorder="little")
@@ -181,7 +182,7 @@ class DataInterface:
 
         # Ensure file exists
         if not os.path.exists(self.file):
-            with open(self.file, "wb"):
+            with open(self.file, "w") as f:
                 pass
         else:
             self.total_records = os.path.getsize(self.file) // PAIR_SIZE
@@ -198,7 +199,7 @@ class DataInterface:
 
     # record: (key, voltage, current)
     def write_entry(self, index, record):
-        if not index:
+        if index is None:
             index = self.autoindexing
             self.autoindexing += 1
         page_start = (index // DATA_PAGE_SIZE) * DATA_PAGE_SIZE
@@ -238,7 +239,7 @@ class DataInterface:
         self.write_count += 1
 
     # -------------------- READ --------------------
-    def read_entry(self, index):
+    def read_entry(self, index, whole=False):
         self.flush_write_buffer()
         if index < 0:
             return None
@@ -247,7 +248,9 @@ class DataInterface:
             start = self.read_buffer_base_index
             end = start + len(self.read_buffer)
             if start <= index < end:
-                _, voltage, current = self.read_buffer[index - start]
+                key, voltage, current = self.read_buffer[index - start]
+                if whole:
+                    return key, voltage, current
                 return (voltage, current)
 
         page_start = (index // DATA_PAGE_SIZE) * DATA_PAGE_SIZE
@@ -268,7 +271,24 @@ class DataInterface:
 
         buffer_index = index - page_start
         if 0 <= buffer_index < len(self.read_buffer):
-            _, voltage, current = self.read_buffer[buffer_index]
+            key, voltage, current = self.read_buffer[buffer_index]
+            if whole:
+                return key, voltage, current
             return (voltage, current)
         else:
             return None
+
+    def copy_from_data_interface(self, temp_data_interface):
+        # clear existing file
+        with open(self.file, "wb") as f:
+            pass
+        i = 0
+        record = temp_data_interface.read_entry(i, whole=True)
+        while record and record != DELETE_RECORD:
+            #print("prz",self.write_buffer)
+            self.write_entry(i, record)
+            #print("po",self.write_buffer)
+            i += 1
+            record = temp_data_interface.read_entry(i, whole=True)
+        self.autoindexing = i
+        print(f"Reorganization disk writes: {self.write_count}")

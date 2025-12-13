@@ -41,6 +41,7 @@ class TreeLoader:
             #     149, 173, 200, 82, 262, 108, 224, 91, 46, 211,
             #     13, 223, 134, 206
             # ]
+            random.shuffle(to_add)
             print(len(to_add))
             for i in range(len(to_add)):
                 f.write(ADD_INSTR.to_bytes(INSTRUCTION_TYPE_LENGTH, "little"))
@@ -132,22 +133,24 @@ def hexdump_4byte(file_path):
 # PAIR_SIZE = 20  # 4-byte int + 2 doubles
 # PAGE_SIZE = 10  # number of records per page
 #
-def display_data_file(filename):
-    if not os.path.exists(filename):
-        print("File does not exist")
-        return
+import os
+import struct
 
-    filesize = os.path.getsize(filename)
-    total_records = filesize // PAIR_SIZE
-
+def display_data_file(filename, lines=None):
+    i = 0
     with open(filename, "rb") as f:
-        print(f"Displaying {total_records} records from '{filename}':\n")
-        for record_index in range(total_records):
-            data = f.read(PAIR_SIZE)
-            if not data:
-                break
-            key, voltage, current = struct.unpack("<i dd", data)
-            if key != 0:
-                print(f"Line {record_index:03d}: Key={key}, Voltage={voltage:.3f}, Current={current:.3f}")
-#
-# display_data_file(DEFAULT_DATA_FILENAME)
+        key, voltage, current = struct.unpack("<i dd", f.read(PAIR_SIZE))
+        print(f"line: {i}, key: {key}, voltage: {voltage}, current: {current}")
+        if lines is None:
+            while key:
+                key, voltage, current = struct.unpack("<i dd", f.read(PAIR_SIZE))
+                i += 1
+                print(f"line: {i}, key: {key}, voltage: {voltage}, current: {current}")
+        else:
+            for _ in range(lines):
+                key, voltage, current = struct.unpack("<i dd", f.read(PAIR_SIZE))
+                i += 1
+                print(f"line: {i}, key: {key}, voltage: {voltage}, current: {current}")
+    print("////////////////////")
+
+# # display_data_file(DEFAULT_DATA_FILENAME)
