@@ -2,8 +2,7 @@ import os.path
 
 from BTree import BTree
 from utils import *
-from test import TreeLoader, hexdump_4byte, display_data_file
-from Interfaces import DataInterface
+from test import TreeLoader
 
 def print_accesses(btree):
     t_reads, t_writes = btree.get_access_counter()
@@ -56,7 +55,7 @@ def test_mode_loop():
         if fname == "exit":
             return None
         tree_loader = TreeLoader(fname, btree)
-        tree_loader.write_test_data()
+        # tree_loader.write_test_data()
         tree_loader.load()
         btree.display()
         return btree
@@ -130,8 +129,10 @@ def interactive_mode_loop(btree):
         if choice and interactive_mode_running:
             print_accesses(btree)
             if number == 3:
-                btree.reorganize_data()
+                if input("reorganize?[y/n]:") == "y":
+                    btree.reorganize_data()
             btree.display()
+            print("occupied:",btree.get_space_occupied())
         # hexdump_4byte("btree.bin")
 
 def main_loop():

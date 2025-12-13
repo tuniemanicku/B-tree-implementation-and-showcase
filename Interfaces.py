@@ -1,3 +1,4 @@
+from test import display_data_file
 from utils import *
 import struct
 
@@ -30,7 +31,7 @@ class BTreeInterface:
         self.record_count_offset = (2*order+1)*POINTER_SIZE + (2*order)*(KEY_SIZE + POINTER_SIZE)
         self.parent_pointer_offset = (2*order+1)*POINTER_SIZE + (2*order)*(KEY_SIZE + POINTER_SIZE) + RECORD_COUNT_SIZE
         self.prev_write = bytearray(self.page_size)
-        print("Node size:",self.page_size)
+        # print("Node size:",self.page_size)
 
     def reset_read_writes(self):
         self.read_counter = 0
@@ -206,11 +207,8 @@ class DataInterface:
 
         if self.write_buffer_base_index != page_start:
             self.flush_write_buffer()
-            if record==DELETE_RECORD:
-                self.read_entry(index)
-                self.write_buffer = self.read_buffer
-            else:
-                self.write_buffer = [(0, 0.0, 0.0)] * DATA_PAGE_SIZE
+            self.read_entry(index)
+            self.write_buffer = self.read_buffer
             self.write_buffer_base_index = page_start
 
         rel_idx = index - page_start
@@ -240,6 +238,7 @@ class DataInterface:
 
     # -------------------- READ --------------------
     def read_entry(self, index, whole=False):
+        # display_data_file(DEFAULT_DATA_FILENAME, self.autoindexing)
         self.flush_write_buffer()
         if index < 0:
             return None
@@ -291,4 +290,5 @@ class DataInterface:
             i += 1
             record = temp_data_interface.read_entry(i, whole=True)
         self.autoindexing = i
+        self.flush_write_buffer()
         print(f"Reorganization disk writes: {self.write_count}")

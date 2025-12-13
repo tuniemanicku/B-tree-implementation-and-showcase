@@ -1,5 +1,6 @@
 from Interfaces import *
 import random
+from utils import *
 
 class TreeLoader:
     def __init__(self, filename, btree):
@@ -12,7 +13,7 @@ class TreeLoader:
             while instruction_type:
                 if instruction_type == ADD_INSTR:
                     key, u, i = struct.unpack("<i dd", f.read(PAIR_SIZE))
-                    print(key)
+                    # print(key)
                     self.btree.add_record(key=key, record=(u, i))
                 elif instruction_type == DELETE_INSTR:
                     key = struct.unpack("<i", f.read(KEY_SIZE))
