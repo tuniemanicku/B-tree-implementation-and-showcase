@@ -119,6 +119,9 @@ def interactive_mode_loop(btree):
                 print(f"Record with key {key} deleted")
         elif number == 5:
             print("Update record")
+            key = int(input("Key: "))
+            record = input("Record [U I]: ").split(" ")
+            result = btree.update_record(key=key, record=(float(record[0]), float(record[1])))
         else:
             print("Interactive mode exitting")
             interactive_mode_running = False

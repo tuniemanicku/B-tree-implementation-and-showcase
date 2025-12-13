@@ -2,7 +2,6 @@ from Interfaces import *
 from utils import *
 # from test import *
 import bisect
-from helper_functions import sort_parent_and_siblings
 
 class BTree:
     def __init__(self):
@@ -371,14 +370,20 @@ class BTree:
 
         middle_key = len(dst_keys)//2
 
-        # adjust new pointer
-        if new_child:
-            dst_children.insert(i + 1, new_child)
-            print("blblbl",dst_children)
-
         parent = self.get_parent_pointer_from_node(dst_node)
         # new node becomes right node
         new_right = self.tree_interface.get_new_node_address()
+
+        # adjust new pointer and parent
+        if new_child:
+            dst_children.insert(i + 1, new_child)
+            print("blblbl",dst_children)
+            for child in dst_children[middle_key+1:]:
+                child_node = self.tree_interface.read_page(child)
+                p_ptr_offset = self.tree_interface.parent_pointer_offset
+                child_node[p_ptr_offset:p_ptr_offset+POINTER_SIZE] = new_right.to_bytes(POINTER_SIZE, 'little')
+                self.tree_interface.write_page(child, child_node)
+
         self.write_node(node_address=new_right,
                         child_ptrs=dst_children[middle_key+1:], ######################
                         keys=dst_keys[middle_key+1:],
@@ -540,183 +545,219 @@ class BTree:
             if not self.search(search_key=key):
                 return DOES_NOT_EXIST
             else:
+                search_key = key
                 current = self.path_buffer[-1]
                 current_node = self.node_buffer[current]
                 current_m = self.get_node_m(node=current_node)
                 current_children = self.get_all_child_pointers_from_node(node=current_node, m=current_m)
-                current_keys, current_pointers = self.get_all_keys_and_pointers_from_node(node=current_node, m=current_m)
-                current_parent = self.get_parent_pointer_from_node(current_node)
-                if not current_children[0]: # take first child to see if it is NULL -> leaf
-                    self.leaf_pop(current, current_node, current_m, key)
-                else: # subtree
-                    # replace with smallest key from child on the right
-                    i = current_keys.index(key)
-                    # delete corresponding data
-                    data_to_delete = current_pointers[i]
-                    self.data_interface.write_entry(index=data_to_delete, record=DELETE_RECORD)
-                    # get child for replacement
-                    child = current_children[i+1]
-                    self.path_buffer.append(child)
-                    child_node = self.tree_interface.read_page(index=child)
-                    self.node_buffer[child] = child_node
-                    child_m = self.get_node_m(node=child_node)
-                    # get child smallest key and write it to node and recursively delete this key
-                    ch_keys, ch_pointers = self.get_all_keys_and_pointers_from_node(node=child_node, m=child_m)
-                    new_key = ch_keys[0]
-                    current_keys[i] = new_key
-                    current_pointers[i] = ch_pointers[0]
+                curr_keys, curr_pointers = self.get_all_keys_and_pointers_from_node(current_node, current_m)
+                key, pointer, leaf, index, keys, pointers, parent, children = None, None, None, None, None, None, None, None
+                # check if in leaf
+                if self.get_all_child_pointers_from_node(node=current_node, m=current_m)[0] == NULL_ADDRESS:
+                    leaf = current
+                    parent = self.get_parent_pointer_from_node(current_node)
+                    children = current_children
+                    keys, pointers = curr_keys, curr_pointers
+                    index = keys.index(search_key) + 1
+                else:
+                    key_offset = curr_keys.index(key)
+                    key, pointer, leaf, index, keys, pointers, parent, children = self.find_predecessor(key_offset, current_node, current)
+                    curr_keys[key_offset] = key
+                    curr_pointers[key_offset] = pointer
                     self.write_node(node_address=current,
                                     child_ptrs=current_children,
-                                    keys=current_keys,
-                                    values=current_pointers,
-                                    parent_pointer=current_parent)
-                    if not self.get_all_child_pointers_from_node(child_node, child_m)[0]: # if leaf
-                        self.leaf_pop(child, child_node, child_m, new_key, from_parent=True)
-                    else:
-                        # call recursively subtree_pop
-                        self.subtree_pop(child, child_node, child_m, new_key, from_parent=True)
-                        pass
+                                    keys=curr_keys,
+                                    values=curr_pointers,
+                                    parent_pointer=parent)
+                keys.pop(index-1)
+                data_pointer = pointers.pop(index-1)
+                self.data_interface.write_entry(index=data_pointer, record=DELETE_RECORD)
+                l_node = self.node_buffer[leaf]
+                self.write_node(node_address=leaf,
+                                child_ptrs=children,
+                                keys=keys,
+                                values=pointers,
+                                parent_pointer=parent)
+                index -= 1
+                if len(keys) < self.order:
+                    self.handle_underflow(leaf, l_node, parent)
                 return OK
 
-    def subtree_pop(self, dst, dst_node, dst_m, key, from_parent=False):
-        dst_keys, dst_pointers = self.get_all_keys_and_pointers_from_node(dst_node, dst_m)
-        dst_children = self.get_all_child_pointers_from_node(dst_node, dst_m)
-        dst_parent = self.get_parent_pointer_from_node(dst_node)
+    def find_predecessor(self, key_offset, node, node_address):
+        node_m = self.get_node_m(node=node)
+        node_children = self.get_all_child_pointers_from_node(node=node, m=node_m)
+        l_child = node_children[key_offset]
+        self.path_buffer.append(l_child)
+        l_node = self.tree_interface.read_page(index=l_child)
+        self.node_buffer[l_child] = l_node
+        parent = self.get_parent_pointer_from_node(node=node)
 
-        # replace with smallest key from child on the right
-        i = dst_keys.index(key)
-        # delete corresponding data
-        data_to_delete = dst_pointers[i]
-        if not from_parent:
-            self.data_interface.write_entry(index=data_to_delete, record=DELETE_RECORD)
-        # get child for replacement
-        child = dst_children[i + 1]
-        self.path_buffer.append(child)
-        child_node = self.tree_interface.read_page(index=child)
-        self.node_buffer[child] = child_node
-        child_m = self.get_node_m(node=child_node)
-        # get child smallest key and write it to node and recursively delete this key
-        ch_keys, ch_pointers = self.get_all_keys_and_pointers_from_node(node=child_node, m=child_m)
-        new_key = ch_keys[0]
-        dst_keys[i] = new_key
-        dst_pointers[i] = ch_pointers[0]
-        self.write_node(node_address=dst,
-                        child_ptrs=dst_children,
-                        keys=dst_keys,
-                        values=dst_pointers,
-                        parent_pointer=dst_parent)
-        if not self.get_all_child_pointers_from_node(child_node, child_m)[0]:  # if leaf
-            self.leaf_pop(child, child_node, child_m, new_key, from_parent=True)
-        else:
-            # call recursively subtree_pop
-            self.subtree_pop(child, child_node, child_m, new_key, from_parent=True)
-            pass
+        l_m = self.get_node_m(node=l_node)
+        l_keys, l_pointers = self.get_all_keys_and_pointers_from_node(node=l_node, m=l_m)
+        l_children = self.get_all_child_pointers_from_node(node=l_node, m=l_m)
+        largest_key, largest_pointer = l_keys[l_m-1], l_pointers[l_m-1]
+        while l_children[l_m] != NULL_ADDRESS:
+            l_child = l_children[l_m]
+            self.path_buffer.append(l_child)
+            l_node = self.tree_interface.read_page(index=l_child)
+            self.node_buffer[l_child] = l_node
+            parent = self.get_parent_pointer_from_node(node=node)
 
-    def leaf_pop(self, dst, dst_node, dst_m, key, from_parent=False):
-        dst_keys, dst_pointers = self.get_all_keys_and_pointers_from_node(dst_node, dst_m)
-        dst_children = self.get_all_child_pointers_from_node(dst_node, dst_m)
-        dst_parent = self.get_parent_pointer_from_node(dst_node)
-        i = dst_keys.index(key)
-        dst_children.pop(i)
-        dst_keys.pop(i)
-        data_to_delete = dst_pointers.pop(i)
-        if not from_parent:
-            self.data_interface.write_entry(index=data_to_delete, record=DELETE_RECORD)
-        dst_m -= 1
-        if dst_m < self.order:
-            # handle underflow
-            self.handle_underflow(dst=dst, dst_node=dst_node, dst_keys=dst_keys, dst_values=dst_pointers)
-        else:
-            self.write_node(node_address=dst,
-                            child_ptrs=dst_children,
-                            keys=dst_keys,
-                            values=dst_pointers,
-                            parent_pointer=dst_parent)
+            l_m = self.get_node_m(node=l_node)
+            l_keys, l_pointers = self.get_all_keys_and_pointers_from_node(node=l_node, m=l_m)
+            l_children = self.get_all_child_pointers_from_node(node=l_node, m=l_m)
+            largest_key, largest_pointer = l_keys[l_m - 1], l_pointers[l_m - 1]
 
-    def handle_underflow(self, dst, dst_node, dst_keys, dst_values):
-        if dst == self.root:
-            if len(dst_keys) >= 1: # min 1 key for root
-                return # ale to walnie
-            else:
-                pass
-                # collect all keys on level 1 to root
-                # take pointers from children
-                # deallocate right and left children of root
-                # refresh parent for all nodes below now
-        # try compensation
-        idd, sibling, sibling_node, parent = None, None, None, None
-        output = self.compensation_possible(node=dst_node, node_address=dst, compensation_type="delete")
-        if output:
-            idd, sibling, sibling_node, parent = output
-        if idd == 0:
-            self.compensate_left(dst, dst_node, sibling, sibling_node, record=None, record_address=None, parent=parent, key=None,
-                                 dst_keys=dst_keys, dst_values=dst_values)
-        elif idd == 1:
-            self.compensate_right(dst, dst_node, sibling, sibling_node, record=None, record_address=None, parent=parent, key=None,
-                                  dst_keys=dst_keys, dst_values=dst_values)
-        else:
-            self.merge(dst, dst_node, dst_keys, dst_values)
+        return largest_key, largest_pointer, l_child, l_m, l_keys, l_pointers, parent, l_children
 
-    def merge(self, dst, dst_node, dst_keys, dst_values):
-        # merge (with left first)
-        parent_ptr_offset = self.tree_interface.parent_pointer_offset
-        parent = int.from_bytes(dst_node[parent_ptr_offset:parent_ptr_offset + POINTER_SIZE],
-                                        byteorder='little')
-        if not parent:
-            print("WHOOOOOOOOPS") #TODO #########################################
-            raise Exception("WHOOOOOOOOOPS")
-        else:
-            parent_keys, parent_pointers = None, None
-            parent_node = self.node_buffer[parent]
-            parent_m = self.get_node_m(node=parent_node)
-            children = self.get_all_child_pointers_from_node(node=parent_node, m=parent_m)
-            i = children.index(dst)
-            left_sibling = None
-            right_sibling = None
-            if i - 1 >= 0:
-                left_sibling = children[i - 1]
-            if i + 1 < parent_m + 1:
-                right_sibling = children[i + 1]
-            if left_sibling:
-                left_node = self.checked_siblings[LEFT]
-                left_m = self.get_node_m(node=left_node)
-                left_keys, left_pointers = self.get_all_keys_and_pointers_from_node(left_node, left_m)
-                parent_keys, parent_pointers = self.get_all_keys_and_pointers_from_node(parent_node, parent_m)
-                parent_key = parent_keys.pop(i-1)
-                parent_pointer = parent_pointers.pop(i-1)
-                all_keys, all_pointers = sort_parent_and_siblings(dst_keys, left_keys, parent_key, dst_values, left_pointers, parent_pointer)
-                # delete pointer i and write to left sibling
-                self.tree_interface.free_node_address(children[i])
-                children.pop(i)
+    def handle_underflow(self, node_address, node, parent):
+        # get child index from parent
+        parent_node = self.node_buffer[node_address]
+        parent_m = self.get_node_m(node=parent_node)
+        child_index = self.get_all_child_pointers_from_node(node=parent_node, m=parent_m).index(node_address)
+        if self.compensation_for_deletion(node, node_address, parent, parent_node, parent_m):
+             return
+        self.merge(node_address, node, parent, parent_node, child_index)
+        # merge_res = self.merge_nodes(path, leaf_node, leaf_offset, child_index)
+        # print(merge_res)
+        # parent_node = self.read_page(parent_offset)
+        # parent_occupied = self.count_occupied_rps(parent_node)
+        #
+        # if parent_offset == self.root_offset:
+        #     return {"status": "merged_into_root"}
+        #
+        # if parent_occupied < (RECORDS_PER_NODE + 1) // 2:
+        #     return self.handle_underflow(path[:-1], parent_node, parent_offset)
+
+    def compensation_for_deletion(self, node, node_address, parent, parent_node, parent_m):
+        parent_children = self.get_all_child_pointers_from_node(node=parent_node, m=parent_m)
+        parent_keys, parent_pointers = self.get_all_keys_and_pointers_from_node(node=parent_node, m=parent_m)
+        child_index = parent_children.index(node_address)
+        node_m = self.get_node_m(node=node)
+        # try left sibling
+        if child_index > 0:
+            left_sibling = parent_children[child_index-1]
+            left_node = self.tree_interface.read_page(index=left_sibling)
+            left_m = self.get_node_m(node=left_node)
+            if left_m > self.order:
+                temp_keys, temp_pointers = self.get_all_keys_and_pointers_from_node(node=left_node, m=left_m)
+                temp_keys.append(parent_keys[child_index-1])
+                temp_pointers.append(parent_pointers[child_index-1])
+                node_keys, node_pointers = self.get_all_keys_and_pointers_from_node(node=node, m=node_m)
+                temp_keys += node_keys
+                temp_pointers += node_pointers
+
+                middle_key = len(temp_keys)//2
+                left_keys = temp_keys[:middle_key]
+                left_pointers = temp_pointers[:middle_key]
+
+                parent_key = temp_keys[middle_key]
+                parent_pointer = temp_pointers[middle_key]
+                parent_keys[child_index-1] = parent_key
+                parent_pointers[child_index-1] = parent_pointer
+
+                node_keys = temp_keys[middle_key+1:]
+                node_pointers = temp_pointers[middle_key+1:]
+
                 self.write_node(node_address=left_sibling,
-                                child_ptrs=[NULL_ADDRESS], #TODO ##############################
-                                keys=all_keys,
-                                values=all_pointers,
+                                child_ptrs=self.get_all_child_pointers_from_node(node=left_node, m=left_m), ##########
+                                keys=left_keys,
+                                values=left_pointers,
                                 parent_pointer=parent)
-            elif right_sibling:
-                right_node = self.checked_siblings[RIGHT]
-                right_m = self.get_node_m(node=right_node)
-                right_keys, right_pointers = self.get_all_keys_and_pointers_from_node(right_node, right_m)
-                parent_keys, parent_pointers = self.get_all_keys_and_pointers_from_node(parent_node, parent_m)
-                parent_key = parent_keys.pop(i)
-                parent_pointer = parent_pointers.pop(i)
-                all_keys, all_pointers = sort_parent_and_siblings(dst_keys, right_keys, parent_key, dst_values,
-                                                                  right_pointers, parent_pointer)
-                # delete pointer i+1 and write to dst
-                self.tree_interface.free_node_address(children[i+1])
-                children.pop(i+1)
-                self.write_node(node_address=dst,
-                                child_ptrs=[NULL_ADDRESS],  # TODO ##############################
-                                keys=all_keys,
-                                values=all_pointers,
+                self.write_node(node_address=node_address,
+                                child_ptrs=self.get_all_child_pointers_from_node(node=node, m=node_m ), ###########
+                                keys=node_keys,
+                                values=node_pointers,
                                 parent_pointer=parent)
-            # check if parent requires merge
-            if len(parent_keys) < self.order:
-            # if so call handle underflow on parent
-                self.handle_underflow(parent, parent_node, parent_keys, parent_pointers) #TODO ########################
-            else:
                 self.write_node(node_address=parent,
-                                child_ptrs=children,
+                                child_ptrs=parent_children,
                                 keys=parent_keys,
                                 values=parent_pointers,
-                                parent_pointer=self.get_parent_pointer_from_node(parent_node))
+                                parent_pointer=self.get_parent_pointer_from_node(node=parent_node))
+                return True
+        # try right sibling
+        elif child_index < parent_m:
+            right_sibling = parent_children[child_index + 1]
+            right_node = self.tree_interface.read_page(index=right_sibling)
+            right_m = self.get_node_m(node=right_node)
+            if right_m > self.order:
+                temp_keys, temp_pointers = self.get_all_keys_and_pointers_from_node(node=node, m=node_m)
+                temp_keys.append(parent_keys[child_index + 1])
+                temp_pointers.append(parent_pointers[child_index + 1])
+                r_keys, r_pointers = self.get_all_keys_and_pointers_from_node(node=right_node, m=right_m)
+                temp_keys += r_keys
+                temp_pointers += r_pointers
+
+                middle_key = len(temp_keys) // 2
+                right_keys = temp_keys[middle_key+1:]
+                right_pointers = temp_pointers[middle_key+1:]
+
+                parent_key = temp_keys[middle_key]
+                parent_pointer = temp_pointers[middle_key]
+                parent_keys[child_index + 1] = parent_key
+                parent_pointers[child_index + 1] = parent_pointer
+
+                node_keys = temp_keys[:middle_key]
+                node_pointers = temp_pointers[:middle_key]
+
+                self.write_node(node_address=right_sibling,
+                                child_ptrs=self.get_all_child_pointers_from_node(node=right_node, m=right_m),  ##########
+                                keys=right_keys,
+                                values=right_pointers,
+                                parent_pointer=parent)
+                self.write_node(node_address=node_address,
+                                child_ptrs=self.get_all_child_pointers_from_node(node=node, m=node_m),  ###########
+                                keys=node_keys,
+                                values=node_pointers,
+                                parent_pointer=parent)
+                self.write_node(node_address=parent,
+                                child_ptrs=parent_children,
+                                keys=parent_keys,
+                                values=parent_pointers,
+                                parent_pointer=self.get_parent_pointer_from_node(node=parent_node))
+                return True
+        return False
+
+    def merge(self, node_address, node, parent, parent_node, child_index):
+        #cant merge on root?
+        print("merging, merging you-u-u")
+        node_m = self.get_node_m(node=node)
+        parent_m = self.get_node_m(parent_node)
+        parent_children = self.get_all_child_pointers_from_node(node=parent_node, m=parent_m)
+        parent_keys, parent_pointers = self.get_all_keys_and_pointers_from_node(node=parent_node, m=parent_m)
+        # def remove_parent_key(index): ????????????????????????
+        #     for idx in range(index, parent_occupied - 1):
+        #         parent_node.keys[idx] = parent_node.keys[idx + 1]
+        #         parent_node.record_pointers[idx] = parent_node.record_pointers[idx + 1]
+        #     parent_node.keys[parent_occupied - 1] = 0
+        #     parent_node.record_pointers[parent_occupied - 1] = 0
+        #     # adjust child pointers
+        #     for idx in range(index + 1, parent_occupied + 1):
+        #         parent_node.children_pointers[idx - 1] = parent_node.children_pointers[idx]
+        #     parent_node.children_pointers[parent_occupied] = 0
+
+        if child_index > 0:
+            left_sibling = parent_children[child_index - 1]
+            left_node = self.node_buffer[left_sibling]
+            left_m = self.get_node_m(left_node)
+            temp_keys, temp_pointers = self.get_all_keys_and_pointers_from_node(node=left_node, m=left_m)
+            parentkey = parent_keys[child_index-1]
+            parentpointer = parent_pointers[child_index-1]
+            temp_keys += parentkey
+            temp_pointers += parentpointer
+            node_keys, node_pointers = self.get_all_keys_and_pointers_from_node(node=node, m=node_m)
+            temp_keys += node_keys
+            temp_pointers += node_pointers
+            #combine children
+            node_children = self.get_all_child_pointers_from_node(node=node, m=node_m)
+            left_children = self.get_all_child_pointers_from_node(node=left_node, m=left_m)
+            all_children = left_children + node_children
+
+        else:
+            right_sibling = parent_children[child_index + 1]
+
+    def update_record(self, key, record):
+        if self.delete_record(key=key) == DOES_NOT_EXIST:
+            return DOES_NOT_EXIST
+        else:
+            return self.add_record(key=key, record=record)

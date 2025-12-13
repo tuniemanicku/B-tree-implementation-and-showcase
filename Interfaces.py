@@ -198,9 +198,6 @@ class DataInterface:
 
     # record: (key, voltage, current)
     def write_entry(self, index, record):
-        if record == DELETE_RECORD:
-            #TODO# get the page here and write on it
-            pass
         if not index:
             index = self.autoindexing
             self.autoindexing += 1
@@ -208,11 +205,16 @@ class DataInterface:
 
         if self.write_buffer_base_index != page_start:
             self.flush_write_buffer()
-            self.write_buffer = [(0, 0.0, 0.0)] * DATA_PAGE_SIZE
+            if record==DELETE_RECORD:
+                self.read_entry(index)
+                self.write_buffer = self.read_buffer
+            else:
+                self.write_buffer = [(0, 0.0, 0.0)] * DATA_PAGE_SIZE
             self.write_buffer_base_index = page_start
 
         rel_idx = index - page_start
         self.write_buffer[rel_idx] = record
+
 
         if page_start + DATA_PAGE_SIZE > self.total_records:
             self.flush_write_buffer()
