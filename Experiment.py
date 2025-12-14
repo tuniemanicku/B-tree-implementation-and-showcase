@@ -58,8 +58,11 @@ def test_space_occupied(order=BTREE_ORDER):
     space_mean = np.mean(space_occupied_y)
     plt.plot(space_occupied_x, space_occupied_y, "o--")
     plt.axhline(y=math.log(2) * 100, color="yellow", linestyle="-")
-    plt.axhline(y=float(space_mean), color="yellow", linestyle="-")
-    plt.title(f"Zajętość miejsca w drzewie dla danej liczby rekordów i d = {order}")
+    plt.axhline(y=float(space_mean), color="red", linestyle="-")
+    plt.title(f"Occupation of space in a B-tree for d = {order}")
+    plt.xlabel("n")
+    plt.ylabel("Occupation percentage")
+    plt.legend(["Calculated occupation", "Theoretical occupation", "Average occupation"])
     plt.show()
 
 # 2. test average access count for read (d, N)
@@ -168,9 +171,9 @@ def test_average_access_count_for_delete():
             print()
 
 def main():
-    # d_values = [2, 4, 10, 20, 100]
-    # for d in d_values:
-    #     test_space_occupied(order=d)
+    d_values = [2, 4, 10, 20, 100]
+    for d in d_values:
+        test_space_occupied(order=d)
     print("AVERAGE ACCESS COUNT FOR READ TEST")
     print("----------------------------------")
     # test_average_access_count_for_read()
@@ -185,7 +188,7 @@ def main():
 
     print("AVERAGE ACCESS COUNT FOR DELETE TEST")
     print("----------------------------------")
-    test_average_access_count_for_delete()
+    # test_average_access_count_for_delete()
 
 if __name__ == "__main__":
     main()
