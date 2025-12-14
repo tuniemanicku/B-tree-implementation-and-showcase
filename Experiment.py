@@ -25,7 +25,7 @@ def get_all_accesses(btree):
 
 # 1. test tree space occupied
 def test_space_occupied(order=BTREE_ORDER):
-    n_values = [i for i in range(10, 100)]
+    n_values = [i for i in range(100, 1000, 100)]
     print(n_values)
     space_occupied_x = []
     space_occupied_y = []
@@ -152,8 +152,9 @@ def test_average_access_count_for_delete():
             print()
 
 def main():
-    # for d in range(2, 10+1):
-    #     test_space_occupied(order=d)
+    d_values = [2, 4, 10, 20, 100]
+    for d in d_values:
+        test_space_occupied(order=d)
     print("AVERAGE ACCESS COUNT FOR READ TEST")
     print("----------------------------------")
     # test_average_access_count_for_read()
@@ -168,7 +169,7 @@ def main():
 
     print("AVERAGE ACCESS COUNT FOR DELETE TEST")
     print("----------------------------------")
-    test_average_access_count_for_delete()
+    # test_average_access_count_for_delete()
 
 if __name__ == "__main__":
     main()

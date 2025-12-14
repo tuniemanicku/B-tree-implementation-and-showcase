@@ -919,5 +919,5 @@ class BTree:
     def get_space_occupied(self):
         h = self.height
         print("height:",h)
-        n_max = (2*self.order+1)**h - 1
-        return self.record_count/n_max
+        current_max = self.node_count * self.order * 2
+        return self.record_count/current_max
