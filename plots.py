@@ -1,6 +1,5 @@
 import math
 import matplotlib.pyplot as plt
-import numpy as np
 
 n = [10, 20, 50, 100, 200, 500, 1000]
 
@@ -31,45 +30,46 @@ axes[-1].set_xlabel("n")
 plt.tight_layout()
 plt.show()
 
-n_values = np.array([10, 20, 50, 100, 200, 500, 1000])
+n_values = [10, 20, 50, 100, 200, 500, 1000]
 
-table1 = {
-    2: [4, 14, 55, 124, 252, 634, 1242],
-    4: [3, 16, 45, 110, 226, 549, 1082],
-    10: [1, 12, 47, 96, 199, 496, 997],
-    20: [1, 9, 45, 96, 191, 499, 982],
-    100: [1, 15, 36, 93, 193, 489, 960]
+before_reorg = {
+    2: [4, 21, 57, 123, 251, 625, 1242],
+    4: [3, 14, 45, 105, 221, 550, 1095],
+    10: [1, 13, 42, 96, 204, 507, 1007],
+    20: [1, 14, 42, 91, 197, 494, 976],
+    100: [1, 9, 45, 92, 192, 481, 950]
 }
 
-table2 = {
-    2: [5, 8, 21, 43, 81, 205, 396],
-    4: [4, 6, 13, 26, 52, 122, 238],
-    10: [2, 3, 9, 17, 33, 79, 152],
-    20: [2, 3, 8, 14, 26, 64, 124],
-    100: [2, 3, 6, 11, 21, 53, 104]
+after_reorg = {
+    2: [4, 8, 21, 43, 83, 200, 398],
+    4: [3, 6, 12, 27, 50, 122, 243],
+    10: [1, 3, 9, 17, 32, 78, 152],
+    20: [1, 3, 8, 14, 27, 65, 124],
+    100: [1, 3, 6, 11, 21, 53, 103]
 }
 
-fig, axs = plt.subplots(1, 2, figsize=(14, 6), sharey=True)
+ceiling_values = {
+    2: [14, 26, 66, 131, 262, 636, 1253],
+    4: [13, 24, 57, 117, 227, 559, 1104],
+    10: [11, 21, 54, 107, 211, 518, 1017],
+    20: [11, 21, 52, 104, 206, 506, 981],
+    100: [11, 21, 50, 101, 199, 492, 961]
+}
 
-colors = ['r', 'g', 'b', 'c', 'm']
-markers = ['o', 's', 'D', '^', 'v']
+plt.figure(figsize=(15, 10))
 
-for i, d in enumerate(table1.keys()):
-    axs[0].plot(n_values, table1[d], marker=markers[i], color=colors[i], label=f'd={d}')
-axs[0].set_xscale('log')
-axs[0].set_xlabel('n')
-axs[0].set_ylabel('Access Count')
-axs[0].set_title('Before Reorganization')
-axs[0].legend()
-axs[0].grid(True, which='both', linestyle='--', alpha=0.5)
-
-for i, d in enumerate(table2.keys()):
-    axs[1].plot(n_values, table2[d], marker=markers[i], color=colors[i], label=f'd={d}')
-axs[1].set_xscale('log')
-axs[1].set_xlabel('n')
-axs[1].set_title('After Reorganization')
-axs[1].legend()
-axs[1].grid(True, which='both', linestyle='--', alpha=0.5)
+for idx, d in enumerate(before_reorg.keys(), 1):
+    plt.subplot(3, 2, idx)
+    plt.plot(n_values, before_reorg[d], marker='o', label='Before Reorg')
+    plt.plot(n_values, after_reorg[d], marker='s', label='After Reorg')
+    plt.plot(n_values, ceiling_values[d], marker='^', label='Ceiling (rc+nc)')
+    plt.xscale('log')
+    plt.yscale('log')
+    plt.xlabel('n (number of records)')
+    plt.ylabel('Access count')
+    plt.title(f'd = {d}')
+    plt.grid(True, which="both", ls="--", linewidth=0.5)
+    plt.legend()
 
 plt.tight_layout()
 plt.show()

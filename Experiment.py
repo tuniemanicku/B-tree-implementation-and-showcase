@@ -102,6 +102,7 @@ def test_average_access_count_for_exhaustive_read():
 
             btree.display_data(node_address=NULL_ADDRESS, to_print=False)
             tree, data = get_read_accesses(btree, both=True)
+            print(f"records: {btree.record_count}, rc+nc: {btree.node_count + btree.record_count}")
             print(f"nodes count: {btree.node_count}")
             print(f"tree reads: {tree}, data reads: {data}")
             #-------------------------------------------------
@@ -109,6 +110,7 @@ def test_average_access_count_for_exhaustive_read():
             btree.reorganize_data(to_print=False)
             btree.display_data(node_address=NULL_ADDRESS, to_print=False)
             tree, data = get_read_accesses(btree, both=True)
+            print(f"records: {btree.record_count}, rc+nc: {btree.node_count+btree.record_count}")
             print(f"nodes count: {btree.node_count}")
             print(f"tree reads: {tree}, data reads: {data}")
 
@@ -171,16 +173,16 @@ def test_average_access_count_for_delete():
             print()
 
 def main():
-    d_values = [2, 4, 10, 20, 100]
-    for d in d_values:
-        test_space_occupied(order=d)
+    # d_values = [2, 4, 10, 20, 100]
+    # for d in d_values:
+    #     test_space_occupied(order=d)
     print("AVERAGE ACCESS COUNT FOR READ TEST")
     print("----------------------------------")
     # test_average_access_count_for_read()
 
     print("AVERAGE ACCESS COUNT FOR EXHAUSTIVE READ TEST")
     print("----------------------------------")
-    # test_average_access_count_for_exhaustive_read()
+    test_average_access_count_for_exhaustive_read()
 
     print("AVERAGE ACCESS COUNT FOR ADD TEST")
     print("----------------------------------")
