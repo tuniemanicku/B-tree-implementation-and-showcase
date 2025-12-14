@@ -129,8 +129,9 @@ def interactive_mode_loop(btree):
         if choice and interactive_mode_running:
             print_accesses(btree)
             if number == 3:
-                if input("reorganize?[y/n]:") == "y":
-                    btree.reorganize_data()
+                if btree.root:
+                    if input("reorganize?[y/n]:") == "y":
+                        btree.reorganize_data()
             btree.display()
             print("occupied:",btree.get_space_occupied())
         # hexdump_4byte("btree.bin")

@@ -38,6 +38,9 @@ class BTree:
         print("///////////////////////////////////////////")
 
     def display_data(self, node_address=NULL_ADDRESS, to_print=True):
+        if not self.root:
+            print("TREE EMPTY")
+            return
         if node_address == NULL_ADDRESS:
             node_address = self.root
             self.tree_interface.reset_read_writes()
@@ -877,6 +880,7 @@ class BTree:
     def reorganize_data(self, node_address=NULL_ADDRESS, temp_data_interface=None, to_print=True):
         if node_address == NULL_ADDRESS:
             if to_print:
+                self.data_interface.flush_write_buffer()
                 display_data_file(DEFAULT_DATA_FILENAME, lines=self.data_interface.autoindexing)
             temp_data_interface = DataInterface(filename=DEFAULT_REORGANIZE_FILENAME)
             node_address = self.root
@@ -913,11 +917,17 @@ class BTree:
         if node_address == self.root:
             temp_data_interface.flush_write_buffer()
             if to_print:
-                display_data_file(filename=DEFAULT_REORGANIZE_FILENAME, lines=self.data_interface.autoindexing)
-            self.data_interface.copy_from_data_interface(temp_data_interface)
+                pass
+                # display_data_file(filename=DEFAULT_DATA_FILENAME, lines=self.record_count)
+            self.data_interface.copy_from_data_interface(temp_data_interface, lines=self.record_count)
+            if to_print:
+                display_data_file(filename=DEFAULT_DATA_FILENAME, lines=self.record_count)
 
     def get_space_occupied(self):
         h = self.height
         print("height:",h)
-        current_max = self.node_count * self.order * 2
-        return self.record_count/current_max
+        if self.root:
+            current_max = self.node_count * self.order * 2
+            return self.record_count/current_max
+        else:
+            return 0

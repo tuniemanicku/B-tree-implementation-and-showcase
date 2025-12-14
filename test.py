@@ -194,7 +194,7 @@ def display_data_file(filename, lines=None):
                 i += 1
                 print(f"line: {i}, key: {key}, voltage: {voltage}, current: {current}")
         else:
-            for _ in range(lines):
+            for _ in range(lines-1):
                 key, voltage, current = struct.unpack("<i dd", f.read(PAIR_SIZE))
                 i += 1
                 print(f"line: {i}, key: {key}, voltage: {voltage}, current: {current}")

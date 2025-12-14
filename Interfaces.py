@@ -277,18 +277,28 @@ class DataInterface:
         else:
             return None
 
-    def copy_from_data_interface(self, temp_data_interface):
+    def copy_from_data_interface(self, temp_data_interface, lines=None):
         # clear existing file
+        # print(f"Reorganization disk writes: {self.write_count}")
         with open(self.file, "wb") as f:
             pass
         i = 0
-        record = temp_data_interface.read_entry(i, whole=True)
-        while record and record != DELETE_RECORD:
-            #print("prz",self.write_buffer)
-            self.write_entry(i, record)
-            #print("po",self.write_buffer)
-            i += 1
+        if lines is None:
             record = temp_data_interface.read_entry(i, whole=True)
+            while record and record != DELETE_RECORD:
+                # print("prz",self.write_buffer)
+                self.write_entry(i, record)
+                # print("po",self.write_buffer)
+                i += 1
+                # print(f"Reorganization disk writes: {self.write_count}, i:{i}")
+                record = temp_data_interface.read_entry(i, whole=True)
+        else:
+            for _ in range(lines):
+                record = temp_data_interface.read_entry(i, whole=True)
+                # print("prz", self.write_buffer)
+                self.write_entry(i, record)
+                i += 1
+                # print(f"Reorganization disk writes: {self.write_count}, i:{i}")
         self.autoindexing = i
         self.flush_write_buffer()
         print(f"Reorganization disk writes: {self.write_count}")
