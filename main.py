@@ -36,7 +36,7 @@ def test_mode_loop():
             except:
                 print("Wrong input, try again")
                 to_generate = None
-        tree_loader = TreeLoader(DEFAULT_TEST_DATA_FILENAME, btree)
+        tree_loader = TreeLoader(DEFAULT_TEST_DATA_FILENAME_TXT, btree)
         tree_loader.write_random_data(to_generate=to_generate)
         tree_loader.load()
         btree.display()
@@ -55,7 +55,7 @@ def test_mode_loop():
         if fname == "exit":
             return None
         tree_loader = TreeLoader(fname, btree)
-        tree_loader.write_test_data()
+        # tree_loader.write_test_data()
         tree_loader.load()
         btree.display()
         return btree
