@@ -5,10 +5,14 @@ from utils import *
 import bisect
 
 class BTree:
-    def __init__(self):
+    def __init__(self, order=BTREE_ORDER):
         self.height = 0
-        self.order = BTREE_ORDER
-        self.tree_interface = BTreeInterface(filename=DEFAULT_BTREE_FILENAME, order=BTREE_ORDER)
+        self.order = order
+        self.node_count = 0
+        self.record_count = 0
+        self.deleted_records = 0
+
+        self.tree_interface = BTreeInterface(filename=DEFAULT_BTREE_FILENAME, order=order)
         self.data_interface = DataInterface(filename=DEFAULT_DATA_FILENAME)
 
         # B-tree root node address (empty at the start)
@@ -17,7 +21,6 @@ class BTree:
         self.last_search_address = NULL_ADDRESS
         self.path_buffer = []
         self.node_buffer = {}
-        self.existing_nodes = []
         self.checked_siblings = None
     # record: (key, voltage, current)
 
@@ -35,12 +38,16 @@ class BTree:
             print("NULL")
         print("///////////////////////////////////////////")
 
-    def display_data(self, node_address=NULL_ADDRESS):
+    def display_data(self, node_address=NULL_ADDRESS, to_print=True):
+        if not self.root:
+            print("TREE EMPTY")
+            return
         if node_address == NULL_ADDRESS:
             node_address = self.root
             self.tree_interface.reset_read_writes()
             self.data_interface.reset_access_counter()
-            print("----Display the file according to key----")
+            if to_print:
+                print("----Display the file according to key----")
         node = self.tree_interface.read_page(node_address)
         node_m = self.get_node_m(node)
         children = self.get_all_child_pointers_from_node(node, node_m)
@@ -49,13 +56,14 @@ class BTree:
         end = 0
         for i in range(node_m):
             if children[i] != NULL_ADDRESS:
-                self.display_data(node_address=children[i])
+                self.display_data(node_address=children[i], to_print=to_print)
             record = self.data_interface.read_entry(pointers[i])
-            print(f"key: {keys[i]}, record: {record}")
+            if to_print:
+                print(f"key: {keys[i]}, dp: {pointers[i]}, record: {record}")
             end = i
         end += 1
         if children[end] != NULL_ADDRESS:
-            self.display_data(node_address=children[end])
+            self.display_data(node_address=children[end], to_print=to_print)
 
     def combine_node(self, node_address, child_ptrs, keys, values, parent_pointer):
         page_size = self.tree_interface.page_size
@@ -168,6 +176,7 @@ class BTree:
         if not self.root:
             data_address = self.data_interface.write_entry(index=None, record=(key, record[0], record[1]))
             self.root = self.tree_interface.get_new_node_address()
+            self.node_count += 1
             node = bytearray(self.tree_interface.page_size)
             offset = self.tree_interface.keys_offset
             node[offset:offset + KEY_SIZE] = key.to_bytes(KEY_SIZE, "little")
@@ -178,10 +187,13 @@ class BTree:
             self.tree_interface.write(index=self.root+self.tree_interface.page_size-POINTER_SIZE, value=0)
             self.tree_interface.write_page(index=self.root, node=node)
             # hexdump_4byte(DEFAULT_BTREE_FILENAME)
+            self.record_count += 1
+            self.height = 1
             return OK
         if self.search(search_key=key):
             return ALREADY_EXISTS
         else:
+            self.record_count += 1
             data_address = self.data_interface.write_entry(index=None, record=(key, record[0], record[1]))
             dst = self.path_buffer[-1] # last node from search
             dst_node = self.node_buffer[dst]
@@ -378,7 +390,7 @@ class BTree:
         parent = self.get_parent_pointer_from_node(dst_node)
         # new node becomes right node
         new_right = self.tree_interface.get_new_node_address()
-
+        self.node_count += 1
         # adjust new pointer and parent
         if new_child:
             dst_children.insert(i + 1, new_child)
@@ -450,6 +462,7 @@ class BTree:
             self.tree_interface.read_counter = temp2
             self.tree_interface.write_counter = temp
     def split_root(self, dst, dst_node, key, record_address, new_child):
+        self.height += 1
         dst_m = self.get_node_m(node=dst_node)
         dst_keys, dst_pointers = self.get_all_keys_and_pointers_from_node(node=dst_node, m=dst_m)
         dst_children = self.get_all_child_pointers_from_node(node=dst_node, m=dst_m)
@@ -465,6 +478,7 @@ class BTree:
 
         new_left = self.tree_interface.get_new_node_address()
         new_right = self.tree_interface.get_new_node_address()
+        self.node_count += 2
         #root node
         root_key = [dst_keys[middle_key]]
         root_pointer = [dst_pointers[middle_key]]
@@ -571,6 +585,10 @@ class BTree:
             if not result and result != 0:
                 return DOES_NOT_EXIST
             else:
+                self.record_count -= 1
+                self.deleted_records += 1
+                in_leaf = True
+                data_pointer = None
                 search_key = key
                 current = self.path_buffer[-1]
                 current_node = self.node_buffer[current]
@@ -586,10 +604,13 @@ class BTree:
                     children = current_children
                     keys, pointers = curr_keys, curr_pointers
                     index = keys.index(search_key) + 1
+                    data_pointer = pointers.pop(index - 1)
                 else:
+                    in_leaf = False
                     key_offset = curr_keys.index(search_key)
                     key, pointer, leaf, index, keys, pointers, parent, children = self.find_predecessor(key_offset, current_node, current)
                     curr_keys[key_offset] = key
+                    data_pointer = curr_pointers[key_offset]
                     curr_pointers[key_offset] = pointer
                     self.write_node(node_address=current,
                                     child_ptrs=current_children,
@@ -597,8 +618,10 @@ class BTree:
                                     values=curr_pointers,
                                     parent_pointer=curr_parent)
                 keys.pop(index-1)
-                data_pointer = pointers.pop(index-1)
+                if not in_leaf:
+                    pointers.pop(index-1)
                 children.pop(index)
+                # print(f"dp to delete: {data_pointer}")
                 self.data_interface.write_entry(index=data_pointer, record=DELETE_RECORD)
 
                 self.write_node(node_address=leaf,
@@ -609,8 +632,21 @@ class BTree:
                 index -= 1
                 if len(keys) < self.order:
                     l_node = self.tree_interface.read_page(index=leaf)
-                    self.handle_underflow(leaf, l_node, parent)
-                self.update_parent_pointers()
+                    if leaf != self.root:
+                        self.handle_underflow(leaf, l_node, parent)
+                    else: #we are in root-leaf
+                        if len(keys) == 0:
+                            self.tree_interface.free_node_address(leaf)
+                            self.node_count -= 1
+                            self.root = None
+                            self.height = 0
+                if self.root:
+                    self.update_parent_pointers()
+                if self.deleted_records == 2*self.order:
+                    if self.root:
+                        print("Reorganizing the file after 2*d deletes")
+                        self.reorganize_data()
+                        self.deleted_records = 0
                 return OK
 
     def find_predecessor(self, key_offset, node, node_address):
@@ -642,22 +678,14 @@ class BTree:
 
     def handle_underflow(self, node_address, node, parent):
         # get child index from parent
+        if parent == NULL_ADDRESS:
+            print(self.get_all_keys_and_pointers_from_node(node=node, m=self.get_node_m(node=node)))
         parent_node = self.node_buffer[parent]
         parent_m = self.get_node_m(node=parent_node)
         child_index = self.get_all_child_pointers_from_node(node=parent_node, m=parent_m).index(node_address)
         if self.compensation_for_deletion(node, node_address, parent, parent_node, parent_m):
              return
         self.merge(node_address, node, parent, parent_node, child_index)
-        # merge_res = self.merge_nodes(path, leaf_node, leaf_offset, child_index)
-        # print(merge_res)
-        # parent_node = self.read_page(parent_offset)
-        # parent_occupied = self.count_occupied_rps(parent_node)
-        #
-        # if parent_offset == self.root_offset:
-        #     return {"status": "merged_into_root"}
-        #
-        # if parent_occupied < (RECORDS_PER_NODE + 1) // 2:
-        #     return self.handle_underflow(path[:-1], parent_node, parent_offset)
 
     def compensation_for_deletion(self, node, node_address, parent, parent_node, parent_m):
         parent_children = self.get_all_child_pointers_from_node(node=parent_node, m=parent_m)
@@ -756,8 +784,6 @@ class BTree:
         return False
 
     def merge(self, node_address, node, parent, parent_node, child_index):
-        #cant merge on root?
-        print("merging, merging you-u-u")
         node_m = self.get_node_m(node=node)
         parent_m = self.get_node_m(parent_node)
         parent_children = self.get_all_child_pointers_from_node(node=parent_node, m=parent_m)
@@ -787,6 +813,7 @@ class BTree:
 
             #new parent
             self.tree_interface.free_node_address(address=parent_children.pop(child_index))
+            self.node_count -= 1
             self.write_node(node_address=parent,
                             child_ptrs=parent_children,
                             keys=parent_keys,
@@ -824,6 +851,7 @@ class BTree:
 
             # new parent
             self.tree_interface.free_node_address(address=parent_children.pop(child_index+1))
+            self.node_count -= 1
             self.write_node(node_address=parent,
                             child_ptrs=parent_children,
                             keys=parent_keys,
@@ -843,7 +871,9 @@ class BTree:
             if parent_parent == NULL_ADDRESS: # root underflow
                 if len(parent_keys) == 0: # merge new root with two children
                     self.tree_interface.free_node_address(address=self.root)
+                    self.node_count -= 1
                     self.root = merged_address
+                    self.height -= 1
             else:
                 parent_node = self.tree_interface.read_page(parent)
                 self.handle_underflow(parent, parent_node, parent_parent)
@@ -854,14 +884,17 @@ class BTree:
         else:
             return self.add_record(key=key, record=record)
 
-    def reorganize_data(self, node_address=NULL_ADDRESS, temp_data_interface=None):
+    def reorganize_data(self, node_address=NULL_ADDRESS, temp_data_interface=None, to_print=True):
         if node_address == NULL_ADDRESS:
-            display_data_file(DEFAULT_DATA_FILENAME, lines=self.data_interface.autoindexing)
+            if to_print:
+                self.data_interface.flush_write_buffer()
+                display_data_file(DEFAULT_DATA_FILENAME, lines=self.data_interface.autoindexing)
             temp_data_interface = DataInterface(filename=DEFAULT_REORGANIZE_FILENAME)
             node_address = self.root
             self.tree_interface.reset_read_writes()
             self.data_interface.reset_access_counter()
-            print("----Reorganize the file----")
+            if to_print:
+                print("----Reorganize the file----")
         node = self.tree_interface.read_page(node_address)
         node_m = self.get_node_m(node)
         children = self.get_all_child_pointers_from_node(node, node_m)
@@ -890,5 +923,18 @@ class BTree:
         # write the buffer file to main DATA_FILE after reorganization
         if node_address == self.root:
             temp_data_interface.flush_write_buffer()
-            display_data_file(filename=DEFAULT_REORGANIZE_FILENAME, lines=self.data_interface.autoindexing)
-            self.data_interface.copy_from_data_interface(temp_data_interface)
+            if to_print:
+                pass
+                # display_data_file(filename=DEFAULT_DATA_FILENAME, lines=self.record_count)
+            self.data_interface.copy_from_data_interface(temp_data_interface, lines=self.record_count)
+            if to_print:
+                display_data_file(filename=DEFAULT_DATA_FILENAME, lines=self.record_count)
+
+    def get_space_occupied(self):
+        h = self.height
+        print("height:",h)
+        if self.root:
+            current_max = self.node_count * self.order * 2
+            return self.record_count/current_max
+        else:
+            return 0
