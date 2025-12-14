@@ -2,7 +2,7 @@ import os.path
 
 from BTree import BTree
 from utils import *
-from test import TreeLoader
+from test import TreeLoader, hexdump_4byte
 
 def print_accesses(btree):
     t_reads, t_writes = btree.get_access_counter()

@@ -9,6 +9,22 @@ import random
 SCALE = 10
 MAX_N = 500
 
+def extract_added_keys(filename):
+    keys = []
+    with open(filename, "r") as f:
+        for line in f:
+            line = line.strip()
+            if not line:
+                continue
+
+            parts = line.split()
+            if parts[0] == "a":
+                key = int(parts[1])
+                keys.append(key)
+
+    return keys
+
+
 def get_read_accesses(btree, both=False):
     t_reads, _ = btree.get_access_counter()
     d_reads, _ = btree.get_data_access_counter()
@@ -31,7 +47,7 @@ def test_space_occupied(order=BTREE_ORDER):
     space_occupied_y = []
     for n in n_values:
         btree = BTree(order=order)
-        tl = TreeLoader(filename=DEFAULT_TEST_DATA_FILENAME, btree=btree)
+        tl = TreeLoader(filename=DEFAULT_TEST_DATA_FILENAME_TXT, btree=btree)
         tl.write_random_data(to_generate=n)
         tl.load()
         space_occupied = btree.get_space_occupied() * 100  # percentage
@@ -56,7 +72,7 @@ def test_average_access_count_for_read():
         for n in n_values:
             print(f"\tn={n}")
             btree = BTree(order=d)
-            tl = TreeLoader(filename=DEFAULT_TEST_DATA_FILENAME, btree=btree)
+            tl = TreeLoader(filename=DEFAULT_TEST_DATA_FILENAME_TXT, btree=btree)
             tl.write_random_data(to_generate=n)
             tl.load()
             to_search = np.random.randint(1, KEY_MAX_VALUE-1, size=10)
@@ -77,7 +93,7 @@ def test_average_access_count_for_exhaustive_read():
         for n in n_values:
             print(f"\tn={n}")
             btree = BTree(order=d)
-            tl = TreeLoader(filename=DEFAULT_TEST_DATA_FILENAME, btree=btree)
+            tl = TreeLoader(filename=DEFAULT_TEST_DATA_FILENAME_TXT, btree=btree)
             tl.write_random_data(to_generate=n)
             tl.load()
 
@@ -103,7 +119,7 @@ def test_average_access_count_for_add():
         for n in n_values:
             print(f"\tn={n}")
             btree = BTree(order=d)
-            tl = TreeLoader(filename=DEFAULT_TEST_DATA_FILENAME, btree=btree)
+            tl = TreeLoader(filename=DEFAULT_TEST_DATA_FILENAME_TXT, btree=btree)
             tl.write_random_data(to_generate=n)
             tl.load()
 
@@ -131,11 +147,11 @@ def test_average_access_count_for_delete():
         for n in n_values:
             print(f"\tn={n}")
             btree = BTree(order=d)
-            tl = TreeLoader(filename=DEFAULT_TEST_DATA_FILENAME, btree=btree)
+            tl = TreeLoader(filename=DEFAULT_TEST_DATA_FILENAME_TXT, btree=btree)
             tl.write_random_data(to_generate=n)
             tl.load()
-
-            to_delete = np.random.randint(1, KEY_MAX_VALUE - 1, size=10)
+            keys = extract_added_keys(DEFAULT_TEST_DATA_FILENAME_TXT)
+            to_delete = random.sample(keys, k=min(100, n))
             counts_r_t = []
             counts_w_t = []
             for key in to_delete:
@@ -152,9 +168,9 @@ def test_average_access_count_for_delete():
             print()
 
 def main():
-    d_values = [2, 4, 10, 20, 100]
-    for d in d_values:
-        test_space_occupied(order=d)
+    # d_values = [2, 4, 10, 20, 100]
+    # for d in d_values:
+    #     test_space_occupied(order=d)
     print("AVERAGE ACCESS COUNT FOR READ TEST")
     print("----------------------------------")
     # test_average_access_count_for_read()
@@ -169,7 +185,7 @@ def main():
 
     print("AVERAGE ACCESS COUNT FOR DELETE TEST")
     print("----------------------------------")
-    # test_average_access_count_for_delete()
+    test_average_access_count_for_delete()
 
 if __name__ == "__main__":
     main()

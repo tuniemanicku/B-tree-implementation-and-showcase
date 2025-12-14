@@ -10,6 +10,7 @@ class BTree:
         self.order = order
         self.node_count = 0
         self.record_count = 0
+        self.deleted_records = 0
 
         self.tree_interface = BTreeInterface(filename=DEFAULT_BTREE_FILENAME, order=order)
         self.data_interface = DataInterface(filename=DEFAULT_DATA_FILENAME)
@@ -585,6 +586,7 @@ class BTree:
                 return DOES_NOT_EXIST
             else:
                 self.record_count -= 1
+                self.deleted_records += 1
                 in_leaf = True
                 data_pointer = None
                 search_key = key
@@ -640,6 +642,11 @@ class BTree:
                             self.height = 0
                 if self.root:
                     self.update_parent_pointers()
+                if self.deleted_records == 2*self.order:
+                    if self.root:
+                        print("Reorganizing the file after 2*d deletes")
+                        self.reorganize_data()
+                        self.deleted_records = 0
                 return OK
 
     def find_predecessor(self, key_offset, node, node_address):

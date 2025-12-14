@@ -1,4 +1,3 @@
-from Interfaces import *
 import random
 from utils import *
 
@@ -180,7 +179,6 @@ def hexdump_4byte(file_path):
 # PAIR_SIZE = 20  # 4-byte int + 2 doubles
 # PAGE_SIZE = 10  # number of records per page
 #
-import os
 import struct
 
 def display_data_file(filename, lines=None):
