@@ -55,7 +55,7 @@ def test_mode_loop():
         if fname == "exit":
             return None
         tree_loader = TreeLoader(fname, btree)
-        # tree_loader.write_test_data()
+        tree_loader.write_test_data()
         tree_loader.load()
         btree.display()
         return btree

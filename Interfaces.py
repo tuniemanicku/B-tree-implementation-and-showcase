@@ -239,7 +239,7 @@ class DataInterface:
     # -------------------- READ --------------------
     def read_entry(self, index, whole=False):
         # display_data_file(DEFAULT_DATA_FILENAME, self.autoindexing)
-        self.flush_write_buffer()
+        # self.flush_write_buffer()
         if index < 0:
             return None
 

@@ -4,15 +4,24 @@ from test import TreeLoader
 import math
 import matplotlib.pyplot as plt
 import numpy as np
+import random
 
 SCALE = 10
 MAX_N = 500
 
-def get_read_accesses(btree):
+def get_read_accesses(btree, both=False):
+    t_reads, _ = btree.get_access_counter()
+    d_reads, _ = btree.get_data_access_counter()
+    # print(t_reads, end=" ")
+    if both:
+        return t_reads, d_reads
+    else:
+        return t_reads
+
+def get_all_accesses(btree):
     t_reads, t_writes = btree.get_access_counter()
     d_reads, d_writes = btree.get_data_access_counter()
-    # print(t_reads, end=" ")
-    return t_reads
+    return t_reads, t_writes, d_reads, d_writes
 
 # 1. test tree space occupied
 def test_space_occupied(order=BTREE_ORDER):
@@ -58,20 +67,108 @@ def test_average_access_count_for_read():
                 all.append(get_read_accesses(btree))
             print(np.mean(np.array(all)))
 
-# 3. test average access count for add (d, N)
+# 3. test average access count for exhaustive read (d, N)
+def test_average_access_count_for_exhaustive_read():
+    d_values = [2, 4, 10, 20, 100]
+    n_values = [10, 20, 50, 100, 200, 500, 1000]
+    for d in d_values:
+        print("--------")
+        print(f"d={d}")
+        for n in n_values:
+            print(f"\tn={n}")
+            btree = BTree(order=d)
+            tl = TreeLoader(filename=DEFAULT_TEST_DATA_FILENAME, btree=btree)
+            tl.write_random_data(to_generate=n)
+            tl.load()
 
-# 4. test average access count for delete (d, N)
+            btree.display_data(node_address=NULL_ADDRESS, to_print=False)
+            tree, data = get_read_accesses(btree, both=True)
+            print(f"nodes count: {btree.node_count}")
+            print(f"tree reads: {tree}, data reads: {data}")
+            #-------------------------------------------------
+            print("--reorganized--")
+            btree.reorganize_data(to_print=False)
+            btree.display_data(node_address=NULL_ADDRESS, to_print=False)
+            tree, data = get_read_accesses(btree, both=True)
+            print(f"nodes count: {btree.node_count}")
+            print(f"tree reads: {tree}, data reads: {data}")
+
+# 4. test average access count for add (d, N)
+def test_average_access_count_for_add():
+    d_values = [2, 4, 10, 20, 100]
+    n_values = [10, 20, 50, 100, 200, 500, 1000]
+    for d in d_values:
+        print("--------")
+        print(f"d={d}")
+        for n in n_values:
+            print(f"\tn={n}")
+            btree = BTree(order=d)
+            tl = TreeLoader(filename=DEFAULT_TEST_DATA_FILENAME, btree=btree)
+            tl.write_random_data(to_generate=n)
+            tl.load()
+
+            to_add = np.random.randint(1, KEY_MAX_VALUE - 1, size=100)
+            counts_r_t = []
+            counts_w_t = []
+            for key in to_add:
+                btree.tree_interface.reset_read_writes()
+                result = btree.add_record(int(key), record=(1.0, 1.0))
+                if result != ALREADY_EXISTS:
+                    crt, cwt, crd, cwd = get_all_accesses(btree)
+                    counts_r_t.append(crt)
+                    counts_w_t.append(cwt)
+            print(f"tree reads: {np.mean(np.array(counts_r_t)):.2f}", end="\t")
+            print(f"tree writes: {np.mean(np.array(counts_w_t)):.2f}")
+            print()
+
+# 5. test average access count for delete (d, N)
+def test_average_access_count_for_delete():
+    d_values = [2, 4, 10, 20, 100]
+    n_values = [20, 50, 100, 200, 500, 1000, 2000]
+    for d in d_values:
+        print("--------")
+        print(f"d={d}")
+        for n in n_values:
+            print(f"\tn={n}")
+            btree = BTree(order=d)
+            tl = TreeLoader(filename=DEFAULT_TEST_DATA_FILENAME, btree=btree)
+            tl.write_random_data(to_generate=n)
+            tl.load()
+
+            to_delete = np.random.randint(1, KEY_MAX_VALUE - 1, size=10)
+            counts_r_t = []
+            counts_w_t = []
+            for key in to_delete:
+                btree.tree_interface.reset_read_writes()
+                result = btree.delete_record(key=key)
+                while result == DOES_NOT_EXIST:
+                    key = random.randint(1, KEY_MAX_VALUE - 1)
+                    result = btree.delete_record(key=key)
+                crt, cwt, crd, cwd = get_all_accesses(btree)
+                counts_r_t.append(crt)
+                counts_w_t.append(cwt)
+            print(f"tree reads: {np.mean(np.array(counts_r_t)):.2f}", end="\t")
+            print(f"tree writes: {np.mean(np.array(counts_w_t)):.2f}")
+            print()
 
 def main():
     # for d in range(2, 10+1):
     #     test_space_occupied(order=d)
     print("AVERAGE ACCESS COUNT FOR READ TEST")
     print("----------------------------------")
-    test_average_access_count_for_read()
+    # test_average_access_count_for_read()
 
     print("AVERAGE ACCESS COUNT FOR EXHAUSTIVE READ TEST")
     print("----------------------------------")
-    test_average_access_count_for_exhaustive_read()
+    # test_average_access_count_for_exhaustive_read()
+
+    print("AVERAGE ACCESS COUNT FOR ADD TEST")
+    print("----------------------------------")
+    # test_average_access_count_for_add()
+
+    print("AVERAGE ACCESS COUNT FOR DELETE TEST")
+    print("----------------------------------")
+    test_average_access_count_for_delete()
 
 if __name__ == "__main__":
     main()
